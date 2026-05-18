@@ -463,40 +463,6 @@ function CalculatorPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="compare-speeds">
-            <Card>
-              <CardHeader>
-                <CardTitle>Speed comparison</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Annual price at each speed, using current inputs (monthly line cost stays constant — adjust on Calculator tab).
-                </p>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b text-left">
-                        <th className="py-2">Speed</th>
-                        <th className="py-2">Annual price</th>
-                        <th className="py-2">3-year total</th>
-                        <th className="py-2">Profit (3 yrs)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {speedComparison.map((r) => (
-                        <tr key={r.speed} className={`border-b ${r.speed === input.speedMbps ? "bg-primary/5" : ""}`}>
-                          <td className="py-2 font-medium">{r.speed} Mbps {r.speed === input.speedMbps && <Badge variant="outline" className="ml-2">current</Badge>}</td>
-                          <td className="py-2 text-primary font-semibold">{fmt(r.price)}</td>
-                          <td className="py-2">{fmt(r.total)}</td>
-                          <td className="py-2">{fmt(r.profit)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
 
           <TabsContent value="compare-quotes">
             <Card>
