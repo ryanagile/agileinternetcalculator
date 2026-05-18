@@ -1,4 +1,4 @@
-export type Carrier = "Virgin Media" | "Sky" | "Openreach" | "CityFibre";
+export type Carrier = "Virgin Media" | "Sky" | "Openreach" | "CityFibre" | "Virtual1";
 export type BackupType = "None" | "SoGEA" | "FTTP";
 
 export interface QuoteInput {
@@ -92,7 +92,7 @@ export const fmt = (n: number) =>
   }).format(n);
 
 export const SPEEDS = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
-export const CARRIERS: Carrier[] = ["Virgin Media", "Sky", "Openreach", "CityFibre"];
+export const CARRIERS: Carrier[] = ["Virgin Media", "Sky", "Openreach", "CityFibre", "Virtual1"];
 export const BACKUPS: BackupType[] = ["None", "SoGEA", "FTTP"];
 
 export function defaultInput(): QuoteInput {
