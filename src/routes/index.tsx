@@ -88,59 +88,33 @@ function CalculatorPage() {
   const update = <K extends keyof QuoteInput>(key: K, value: QuoteInput[K]) =>
     setInput((p) => ({ ...p, [key]: value }));
 
-  const handleItsQuote = (q: ITSQuoteResponse) => {
-    setItsQuote(q);
-    // Map ITS carrier label onto our 4-carrier enum where possible
-    const mappedCarrier = (CARRIERS as readonly string[]).includes(q.carrier)
-      ? (q.carrier as QuoteInput["carrier"])
-      : input.carrier;
-    setInput((p) => ({
-      ...p,
-      carrier: mappedCarrier,
-      speedMbps: q.speeds.includes(p.speedMbps) ? p.speedMbps : (q.speeds[0] ?? p.speedMbps),
-      bearerMbps: q.bearerOptions.includes(p.bearerMbps)
-        ? p.bearerMbps
-        : (q.bearerOptions[0] ?? p.bearerMbps),
-      monthlyLeasedLine: Math.round(q.monthlyCost * 100) / 100,
-      setupCost: Math.round(Number(q.setupCost) * 100) / 100,
+  const applyProduct = (p: ITSProduct, addr?: ITSAddress) => {
+    const carrierLabel = labelFor(p.supplier);
+    setInput((prev) => ({
+      ...prev,
+      carrier: carrierLabel,
+      speedMbps: p.speed,
+      bearerMbps: p.bearer,
+      monthlyLeasedLine: Math.round(Number(p.monthly_cost) * 100) / 100,
+      setupCost: Math.round(Number(p.install_cost) * 100) / 100,
+      itsProductUuid: p.uuid,
+      itsAddressLine: addr ? formatItsReference(prev.schoolName, addr) : prev.itsAddressLine,
     }));
-    toast.success(`Live pricing loaded from ${q.carrier}${q.isMock ? " (mock)" : ""}`);
   };
 
-  // When user changes speed/bearer in dropdown, re-pick the cheapest matching ITS product
-  // (preferring same carrier, otherwise cheapest available) and update monthly + setup costs.
-  useEffect(() => {
-    if (!itsQuote) return;
-    const matches = itsQuote.products.filter(
-      (p) => p.speed === input.speedMbps && p.bearer === input.bearerMbps,
-    );
-    if (matches.length === 0) return;
-    const sameCarrier = matches.find((p) => labelFor(p.supplier) === input.carrier);
-    const pick =
-      sameCarrier ??
-      [...matches].sort((a, b) => Number(a.monthly_cost) - Number(b.monthly_cost))[0];
-    const newMonthly = Math.round(Number(pick.monthly_cost) * 100) / 100;
-    const newSetup = Math.round(Number(pick.install_cost) * 100) / 100;
-    const newCarrier = (CARRIERS as readonly string[]).includes(labelFor(pick.supplier))
-      ? (labelFor(pick.supplier) as QuoteInput["carrier"])
-      : input.carrier;
-    if (
-      newMonthly !== input.monthlyLeasedLine ||
-      newSetup !== input.setupCost ||
-      newCarrier !== input.carrier
-    ) {
-      setInput((p) => ({
-        ...p,
-        carrier: newCarrier,
-        monthlyLeasedLine: newMonthly,
-        setupCost: newSetup,
-      }));
+  const handleItsQuote = (q: ITSQuoteResponse) => {
+    setItsQuote(q);
+    // Auto-select cheapest product
+    const cheapest = [...q.products].sort(
+      (a, b) => Number(a.monthly_cost) - Number(b.monthly_cost),
+    )[0];
+    if (cheapest) {
+      applyProduct(cheapest, q.address);
+      toast.success(
+        `${q.products.length} products loaded · cheapest: ${labelFor(cheapest.supplier)} ${cheapest.speed} Mbps`,
+      );
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [input.speedMbps, input.bearerMbps, itsQuote]);
-
-  const availableSpeeds = itsQuote?.speeds.length ? itsQuote.speeds : SPEEDS;
-  const availableBearers = itsQuote?.bearerOptions.length ? itsQuote.bearerOptions : SPEEDS;
+  };
 
   const handleSave = () => {
     if (!input.schoolName.trim()) {
