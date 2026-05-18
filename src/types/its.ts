@@ -58,7 +58,6 @@ export interface ITSQuoteResponse {
   address: ITSAddress;
   fetchedAt: string;
   isMock?: boolean;
-  raw?: unknown;
 }
 
 export interface ITSQuoteError {
