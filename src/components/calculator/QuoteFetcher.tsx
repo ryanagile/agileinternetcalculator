@@ -14,6 +14,7 @@ interface Props {
   onSchoolNameChange: (v: string) => void;
   onPostcodeChange: (v: string) => void;
   onQuote: (quote: ITSQuoteResponse) => void;
+  children?: React.ReactNode;
 }
 
 export function QuoteFetcher({
@@ -22,6 +23,7 @@ export function QuoteFetcher({
   onSchoolNameChange,
   onPostcodeChange,
   onQuote,
+  children,
 }: Props) {
   const mutation = useITSQuote();
   const [lastFetched, setLastFetched] = useState<string | null>(null);
@@ -164,6 +166,8 @@ export function QuoteFetcher({
           </div>
         </div>
       )}
+
+      {children}
     </div>
   );
 }

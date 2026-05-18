@@ -175,7 +175,13 @@ function CalculatorPage() {
         map.set(p.speed, p);
       }
     }
-    return [...map.values()].sort((a, b) => a.speed - b.speed);
+    const sorted = [...map.values()].sort((a, b) => a.speed - b.speed);
+    // Only show a speed when the price changes from the next-higher tier.
+    // For runs of consecutive same-price speeds, keep only the highest speed.
+    return sorted.filter((p, i) => {
+      const next = sorted[i + 1];
+      return !next || Number(next.monthly_cost) !== Number(p.monthly_cost);
+    });
   }, [itsQuote]);
 
   return (
@@ -221,70 +227,49 @@ function CalculatorPage() {
                     onSchoolNameChange={(v) => update("schoolName", v)}
                     onPostcodeChange={(v) => update("postcode", v)}
                     onQuote={handleItsQuote}
-                  />
-
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <Field label="School name">
-                      <Input
-                        value={input.schoolName}
-                        onChange={(e) => update("schoolName", e.target.value)}
-                        placeholder="St Mary's Primary"
-                      />
-                    </Field>
-                    <Field label="Postcode">
-                      <Input
-                        value={input.postcode}
-                        onChange={(e) => update("postcode", e.target.value.toUpperCase())}
-                        placeholder="SW1A 1AA"
-                      />
-                    </Field>
-                  </div>
-
-                  {itsQuote?.address && (
-                    <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm flex items-start gap-2">
-                      <MapPin className="h-4 w-4 mt-0.5 text-primary shrink-0" />
-                      <div className="space-y-0.5">
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                          ITS reference
-                        </p>
-                        <p className="font-medium">
-                          {formatItsReference(input.schoolName, itsQuote.address)}
-                        </p>
+                  >
+                    {itsQuote?.address && (
+                      <div className="rounded-md border border-primary/20 bg-background/60 p-3 text-sm flex items-start gap-2">
+                        <MapPin className="h-4 w-4 mt-0.5 text-primary shrink-0" />
+                        <div className="space-y-0.5">
+                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                            ITS reference
+                          </p>
+                          <p className="font-medium leading-snug">
+                            {formatItsReference(input.schoolName, itsQuote.address)}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  <Field label="ITS product (1Gb bearer · 3-year term)">
-                    {itsQuote && itsQuote.products.length > 0 ? (
-                      <div className="flex items-center gap-3">
+                    {itsQuote && itsQuote.products.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-3">
                         <Button
                           type="button"
                           variant="outline"
+                          size="sm"
                           onClick={() => setProductModalOpen(true)}
                         >
                           <TableIcon className="h-4 w-4" />
                           Browse ITS results
                         </Button>
                         {input.itsProductUuid ? (
-                          <p className="text-sm text-muted-foreground">
-                            Selected: <span className="font-medium text-foreground">{input.carrier}</span>{" "}
-                            · {input.speedMbps} Mbps · £
+                          <p className="text-xs text-muted-foreground">
+                            Selected:{" "}
+                            <span className="font-medium text-foreground">{input.carrier}</span> ·{" "}
+                            {input.speedMbps} Mbps · £
                             {input.monthlyLeasedLine.toLocaleString("en-GB", {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
-                            })}/mo
+                            })}
+                            /mo
                           </p>
                         ) : (
-                          <p className="text-sm text-muted-foreground">No product selected.</p>
+                          <p className="text-xs text-muted-foreground">No product selected.</p>
                         )}
                       </div>
-                    ) : (
-                      <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
-                        Enter a school name and postcode above, then click <em>Get pricing</em> to
-                        load ITS products.
-                      </div>
                     )}
-                  </Field>
+                  </QuoteFetcher>
 
                   <div className="grid sm:grid-cols-2 gap-4">
                     <Field label="Carrier">
