@@ -550,6 +550,67 @@ function CalculatorPage() {
           </TabsContent>
         </Tabs>
       </main>
+
+      <Dialog open={productModalOpen} onOpenChange={setProductModalOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>ITS results — cheapest carrier per speed</DialogTitle>
+            <DialogDescription>
+              1Gb bearer · 36-month term. Click a row to apply it to the calculator.
+            </DialogDescription>
+          </DialogHeader>
+          {cheapestBySpeed.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No products available.</p>
+          ) : (
+            <div className="overflow-x-auto max-h-[60vh]">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-background">
+                  <tr className="border-b text-left">
+                    <th className="py-2 pr-2">Speed</th>
+                    <th className="py-2 pr-2">Carrier</th>
+                    <th className="py-2 pr-2">Product</th>
+                    <th className="py-2 pr-2 text-right">Monthly</th>
+                    <th className="py-2 pr-2 text-right">Install</th>
+                    <th className="py-2 pr-2 text-right">3-yr total</th>
+                    <th className="py-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cheapestBySpeed.map((p) => {
+                    const monthly = Number(p.monthly_cost);
+                    const install = Number(p.install_cost);
+                    const total3yr = monthly * 36 + install;
+                    const isSelected = p.uuid === input.itsProductUuid;
+                    return (
+                      <tr
+                        key={p.uuid}
+                        className={`border-b cursor-pointer hover:bg-accent/40 ${isSelected ? "bg-primary/5" : ""}`}
+                        onClick={() => {
+                          applyProduct(p, itsQuote?.address);
+                          setProductModalOpen(false);
+                          toast.success(`Applied ${labelFor(p.supplier)} ${p.speed} Mbps`);
+                        }}
+                      >
+                        <td className="py-2 pr-2 font-medium">{p.speed} Mbps</td>
+                        <td className="py-2 pr-2">{labelFor(p.supplier)}</td>
+                        <td className="py-2 pr-2 text-muted-foreground">{p.product_name}</td>
+                        <td className="py-2 pr-2 text-right">{fmt(monthly)}</td>
+                        <td className="py-2 pr-2 text-right">{fmt(install)}</td>
+                        <td className="py-2 pr-2 text-right">{fmt(total3yr)}</td>
+                        <td className="py-2 text-right">
+                          <Button size="sm" variant={isSelected ? "default" : "outline"}>
+                            {isSelected ? "Selected" : "Use"}
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
