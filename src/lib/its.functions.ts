@@ -206,8 +206,10 @@ export const getItsQuote = createServerFn({ method: "POST" })
     const avail = itsJson?.data;
     const allQuotes = avail?.quotes ?? [];
 
-    // Enforce 3-year term only (in case API returns others)
-    const termFiltered = allQuotes.filter((q) => Number(q.term_months) === 36);
+    // Enforce 3-year term and 1Gb bearer only.
+    const termFiltered = allQuotes.filter(
+      (q) => Number(q.term_months) === 36 && Number(q.bearer) === 1000,
+    );
 
     if (!avail || termFiltered.length === 0) {
       return { ok: false, code: "NO_AVAILABILITY", error: "No 3-year connectivity products available at this address" };
