@@ -175,7 +175,13 @@ function CalculatorPage() {
         map.set(p.speed, p);
       }
     }
-    return [...map.values()].sort((a, b) => a.speed - b.speed);
+    const sorted = [...map.values()].sort((a, b) => a.speed - b.speed);
+    // Only show a speed when the price changes from the next-higher tier.
+    // For runs of consecutive same-price speeds, keep only the highest speed.
+    return sorted.filter((p, i) => {
+      const next = sorted[i + 1];
+      return !next || Number(next.monthly_cost) !== Number(p.monthly_cost);
+    });
   }, [itsQuote]);
 
   return (
