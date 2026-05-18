@@ -185,6 +185,14 @@ function CalculatorPage() {
                   <CardTitle>Quote details</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                  <QuoteFetcher
+                    schoolName={input.schoolName}
+                    postcode={input.postcode}
+                    onSchoolNameChange={(v) => update("schoolName", v)}
+                    onPostcodeChange={(v) => update("postcode", v)}
+                    onQuote={handleItsQuote}
+                  />
+
                   <div className="grid sm:grid-cols-2 gap-4">
                     <Field label="School name">
                       <Input
@@ -212,7 +220,7 @@ function CalculatorPage() {
                       <Select value={String(input.speedMbps)} onValueChange={(v) => update("speedMbps", Number(v))}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          {SPEEDS.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}
+                          {availableSpeeds.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </Field>
@@ -220,7 +228,7 @@ function CalculatorPage() {
                       <Select value={String(input.bearerMbps)} onValueChange={(v) => update("bearerMbps", Number(v))}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          {SPEEDS.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}
+                          {availableBearers.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </Field>
