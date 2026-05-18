@@ -182,9 +182,6 @@ function CalculatorPage() {
         <Tabs defaultValue="calculator">
           <TabsList className="mb-6">
             <TabsTrigger value="calculator">Calculator</TabsTrigger>
-            <TabsTrigger value="live-results">
-              Live Results{itsQuote ? ` (${itsQuote.products.length})` : ""}
-            </TabsTrigger>
             <TabsTrigger value="saved">Saved Quotes ({saved.length})</TabsTrigger>
             <TabsTrigger value="compare-speeds">Compare Speeds</TabsTrigger>
             <TabsTrigger value="compare-quotes">Compare Quotes</TabsTrigger>
