@@ -49,6 +49,7 @@ function CalculatorPage() {
   const [input, setInput] = useState<QuoteInput>(defaultInput);
   const [saved, setSaved] = useState<SavedQuote[]>([]);
   const [compareIds, setCompareIds] = useState<string[]>([]);
+  const [itsQuote, setItsQuote] = useState<ITSQuoteResponse | null>(null);
 
   useEffect(() => {
     setSaved(loadQuotes());
@@ -58,6 +59,52 @@ function CalculatorPage() {
 
   const update = <K extends keyof QuoteInput>(key: K, value: QuoteInput[K]) =>
     setInput((p) => ({ ...p, [key]: value }));
+
+  const handleItsQuote = (q: ITSQuoteResponse) => {
+    setItsQuote(q);
+    // Map ITS carrier label onto our 4-carrier enum where possible
+    const mappedCarrier = (CARRIERS as readonly string[]).includes(q.carrier)
+      ? (q.carrier as QuoteInput["carrier"])
+      : input.carrier;
+    setInput((p) => ({
+      ...p,
+      carrier: mappedCarrier,
+      speedMbps: q.speeds.includes(p.speedMbps) ? p.speedMbps : (q.speeds[0] ?? p.speedMbps),
+      bearerMbps: q.bearerOptions.includes(p.bearerMbps)
+        ? p.bearerMbps
+        : (q.bearerOptions[0] ?? p.bearerMbps),
+      monthlyLeasedLine: Math.round(q.monthlyCost * 100) / 100,
+      setupCost: Math.round(Number(q.setupCost) * 100) / 100,
+    }));
+    toast.success(`Live pricing loaded from ${q.carrier}${q.isMock ? " (mock)" : ""}`);
+  };
+
+  // When user changes speed/bearer in dropdown, re-pick the matching ITS product
+  // and update monthly + setup costs accordingly.
+  useEffect(() => {
+    if (!itsQuote) return;
+    const match = itsQuote.products.find(
+      (p) => p.speed === input.speedMbps && p.bearer === input.bearerMbps,
+    );
+    if (match) {
+      const newMonthly = Math.round(Number(match.monthly_cost) * 100) / 100;
+      const newSetup = Math.round(Number(match.install_cost) * 100) / 100;
+      if (
+        newMonthly !== input.monthlyLeasedLine ||
+        newSetup !== input.setupCost
+      ) {
+        setInput((p) => ({
+          ...p,
+          monthlyLeasedLine: newMonthly,
+          setupCost: newSetup,
+        }));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [input.speedMbps, input.bearerMbps, itsQuote]);
+
+  const availableSpeeds = itsQuote?.speeds.length ? itsQuote.speeds : SPEEDS;
+  const availableBearers = itsQuote?.bearerOptions.length ? itsQuote.bearerOptions : SPEEDS;
 
   const handleSave = () => {
     if (!input.schoolName.trim()) {
