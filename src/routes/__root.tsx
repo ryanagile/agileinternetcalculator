@@ -72,14 +72,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
+      { title: "AgileInternet Pricing Calculator" },
+      { name: "description", content: "Internet Quote Master calculates and generates custom internet quotes for schools." },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { property: "og:title", content: "AgileInternet Pricing Calculator" },
+      { property: "og:description", content: "Internet Quote Master calculates and generates custom internet quotes for schools." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "AgileInternet Pricing Calculator" },
+      { name: "twitter:description", content: "Internet Quote Master calculates and generates custom internet quotes for schools." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/c215cc48-c1ed-45d3-a5eb-64eba0a39759/id-preview-38ef03e8--57524a9e-948e-46dd-bcfd-992757728a04.lovable.app-1779111936090.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/c215cc48-c1ed-45d3-a5eb-64eba0a39759/id-preview-38ef03e8--57524a9e-948e-46dd-bcfd-992757728a04.lovable.app-1779111936090.png" },
     ],
     links: [
       {
