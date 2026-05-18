@@ -23,6 +23,7 @@ export function QuoteFetcher({
   onSchoolNameChange,
   onPostcodeChange,
   onQuote,
+  children,
 }: Props) {
   const mutation = useITSQuote();
   const [lastFetched, setLastFetched] = useState<string | null>(null);
