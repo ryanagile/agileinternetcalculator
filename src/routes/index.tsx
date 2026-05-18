@@ -17,7 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
-import { Download, FileText, Save, Trash2, Calculator as CalcIcon, GitCompare } from "lucide-react";
+import { Download, FileText, Save, Trash2, Calculator as CalcIcon, GitCompare, Database } from "lucide-react";
 import {
   BACKUPS,
   CARRIERS,
@@ -79,26 +79,34 @@ function CalculatorPage() {
     toast.success(`Live pricing loaded from ${q.carrier}${q.isMock ? " (mock)" : ""}`);
   };
 
-  // When user changes speed/bearer in dropdown, re-pick the matching ITS product
-  // and update monthly + setup costs accordingly.
+  // When user changes speed/bearer in dropdown, re-pick the cheapest matching ITS product
+  // (preferring same carrier, otherwise cheapest available) and update monthly + setup costs.
   useEffect(() => {
     if (!itsQuote) return;
-    const match = itsQuote.products.find(
+    const matches = itsQuote.products.filter(
       (p) => p.speed === input.speedMbps && p.bearer === input.bearerMbps,
     );
-    if (match) {
-      const newMonthly = Math.round(Number(match.monthly_cost) * 100) / 100;
-      const newSetup = Math.round(Number(match.install_cost) * 100) / 100;
-      if (
-        newMonthly !== input.monthlyLeasedLine ||
-        newSetup !== input.setupCost
-      ) {
-        setInput((p) => ({
-          ...p,
-          monthlyLeasedLine: newMonthly,
-          setupCost: newSetup,
-        }));
-      }
+    if (matches.length === 0) return;
+    const sameCarrier = matches.find((p) => labelFor(p.supplier) === input.carrier);
+    const pick =
+      sameCarrier ??
+      [...matches].sort((a, b) => Number(a.monthly_cost) - Number(b.monthly_cost))[0];
+    const newMonthly = Math.round(Number(pick.monthly_cost) * 100) / 100;
+    const newSetup = Math.round(Number(pick.install_cost) * 100) / 100;
+    const newCarrier = (CARRIERS as readonly string[]).includes(labelFor(pick.supplier))
+      ? (labelFor(pick.supplier) as QuoteInput["carrier"])
+      : input.carrier;
+    if (
+      newMonthly !== input.monthlyLeasedLine ||
+      newSetup !== input.setupCost ||
+      newCarrier !== input.carrier
+    ) {
+      setInput((p) => ({
+        ...p,
+        carrier: newCarrier,
+        monthlyLeasedLine: newMonthly,
+        setupCost: newSetup,
+      }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [input.speedMbps, input.bearerMbps, itsQuote]);
