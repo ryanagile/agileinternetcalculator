@@ -27,7 +27,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { Download, FileText, Save, Trash2, Calculator as CalcIcon, GitCompare, MapPin, Table as TableIcon } from "lucide-react";
 import {
   BACKUPS,
-  SPEEDS,
+  
   SavedQuote,
   calculate,
   defaultInput,
