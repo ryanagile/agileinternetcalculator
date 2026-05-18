@@ -17,10 +17,9 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
-import { Download, FileText, Save, Trash2, Calculator as CalcIcon, GitCompare, Database } from "lucide-react";
+import { Download, FileText, Save, Trash2, Calculator as CalcIcon, GitCompare, MapPin } from "lucide-react";
 import {
   BACKUPS,
-  CARRIERS,
   SPEEDS,
   SavedQuote,
   calculate,
@@ -33,7 +32,7 @@ import {
 } from "@/lib/calculator";
 import { generateCustomerPDF, generateInternalPDF } from "@/lib/pdf";
 import { QuoteFetcher } from "@/components/calculator/QuoteFetcher";
-import type { ITSQuoteResponse, ITSProduct } from "@/types/its";
+import type { ITSQuoteResponse, ITSProduct, ITSAddress } from "@/types/its";
 
 const SUPPLIER_LABEL: Record<string, string> = {
   bt: "Openreach",
@@ -46,7 +45,23 @@ const SUPPLIER_LABEL: Record<string, string> = {
   zen: "Zen",
   talktalk: "TalkTalk",
 };
-const labelFor = (s: string) => SUPPLIER_LABEL[(s ?? "").toLowerCase()] ?? (s || "Unknown");
+const labelFor = (s: string) =>
+  SUPPLIER_LABEL[(s ?? "").toLowerCase()] ??
+  (s ? s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, " ") : "Unknown");
+
+function formatItsReference(schoolName: string, address: ITSAddress): string {
+  const parts = [
+    schoolName,
+    address.address_line_1,
+    address.address_line_2,
+    address.address_line_3,
+    address.town,
+    address.county,
+    address.postcode,
+  ].filter((p): p is string => !!p && String(p).trim().length > 0);
+  const base = parts.join(", ");
+  return address.uprn ? `${base} - UPRN:${address.uprn}` : base;
+}
 
 export const Route = createFileRoute("/")({
   component: CalculatorPage,
@@ -73,59 +88,33 @@ function CalculatorPage() {
   const update = <K extends keyof QuoteInput>(key: K, value: QuoteInput[K]) =>
     setInput((p) => ({ ...p, [key]: value }));
 
-  const handleItsQuote = (q: ITSQuoteResponse) => {
-    setItsQuote(q);
-    // Map ITS carrier label onto our 4-carrier enum where possible
-    const mappedCarrier = (CARRIERS as readonly string[]).includes(q.carrier)
-      ? (q.carrier as QuoteInput["carrier"])
-      : input.carrier;
-    setInput((p) => ({
-      ...p,
-      carrier: mappedCarrier,
-      speedMbps: q.speeds.includes(p.speedMbps) ? p.speedMbps : (q.speeds[0] ?? p.speedMbps),
-      bearerMbps: q.bearerOptions.includes(p.bearerMbps)
-        ? p.bearerMbps
-        : (q.bearerOptions[0] ?? p.bearerMbps),
-      monthlyLeasedLine: Math.round(q.monthlyCost * 100) / 100,
-      setupCost: Math.round(Number(q.setupCost) * 100) / 100,
+  const applyProduct = (p: ITSProduct, addr?: ITSAddress) => {
+    const carrierLabel = labelFor(p.supplier);
+    setInput((prev) => ({
+      ...prev,
+      carrier: carrierLabel,
+      speedMbps: p.speed,
+      bearerMbps: p.bearer,
+      monthlyLeasedLine: Math.round(Number(p.monthly_cost) * 100) / 100,
+      setupCost: Math.round(Number(p.install_cost) * 100) / 100,
+      itsProductUuid: p.uuid,
+      itsAddressLine: addr ? formatItsReference(prev.schoolName, addr) : prev.itsAddressLine,
     }));
-    toast.success(`Live pricing loaded from ${q.carrier}${q.isMock ? " (mock)" : ""}`);
   };
 
-  // When user changes speed/bearer in dropdown, re-pick the cheapest matching ITS product
-  // (preferring same carrier, otherwise cheapest available) and update monthly + setup costs.
-  useEffect(() => {
-    if (!itsQuote) return;
-    const matches = itsQuote.products.filter(
-      (p) => p.speed === input.speedMbps && p.bearer === input.bearerMbps,
-    );
-    if (matches.length === 0) return;
-    const sameCarrier = matches.find((p) => labelFor(p.supplier) === input.carrier);
-    const pick =
-      sameCarrier ??
-      [...matches].sort((a, b) => Number(a.monthly_cost) - Number(b.monthly_cost))[0];
-    const newMonthly = Math.round(Number(pick.monthly_cost) * 100) / 100;
-    const newSetup = Math.round(Number(pick.install_cost) * 100) / 100;
-    const newCarrier = (CARRIERS as readonly string[]).includes(labelFor(pick.supplier))
-      ? (labelFor(pick.supplier) as QuoteInput["carrier"])
-      : input.carrier;
-    if (
-      newMonthly !== input.monthlyLeasedLine ||
-      newSetup !== input.setupCost ||
-      newCarrier !== input.carrier
-    ) {
-      setInput((p) => ({
-        ...p,
-        carrier: newCarrier,
-        monthlyLeasedLine: newMonthly,
-        setupCost: newSetup,
-      }));
+  const handleItsQuote = (q: ITSQuoteResponse) => {
+    setItsQuote(q);
+    // Auto-select cheapest product
+    const cheapest = [...q.products].sort(
+      (a, b) => Number(a.monthly_cost) - Number(b.monthly_cost),
+    )[0];
+    if (cheapest) {
+      applyProduct(cheapest, q.address);
+      toast.success(
+        `${q.products.length} products loaded · cheapest: ${labelFor(cheapest.supplier)} ${cheapest.speed} Mbps`,
+      );
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [input.speedMbps, input.bearerMbps, itsQuote]);
-
-  const availableSpeeds = itsQuote?.speeds.length ? itsQuote.speeds : SPEEDS;
-  const availableBearers = itsQuote?.bearerOptions.length ? itsQuote.bearerOptions : SPEEDS;
+  };
 
   const handleSave = () => {
     if (!input.schoolName.trim()) {
@@ -193,9 +182,6 @@ function CalculatorPage() {
         <Tabs defaultValue="calculator">
           <TabsList className="mb-6">
             <TabsTrigger value="calculator">Calculator</TabsTrigger>
-            <TabsTrigger value="live-results">
-              Live Results{itsQuote ? ` (${itsQuote.products.length})` : ""}
-            </TabsTrigger>
             <TabsTrigger value="saved">Saved Quotes ({saved.length})</TabsTrigger>
             <TabsTrigger value="compare-speeds">Compare Speeds</TabsTrigger>
             <TabsTrigger value="compare-quotes">Compare Quotes</TabsTrigger>
@@ -232,29 +218,71 @@ function CalculatorPage() {
                         placeholder="SW1A 1AA"
                       />
                     </Field>
-                    <Field label="Carrier">
-                      <Select value={input.carrier} onValueChange={(v) => update("carrier", v as QuoteInput["carrier"])}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
+                  </div>
+
+                  {itsQuote?.address && (
+                    <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm flex items-start gap-2">
+                      <MapPin className="h-4 w-4 mt-0.5 text-primary shrink-0" />
+                      <div className="space-y-0.5">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          ITS reference
+                        </p>
+                        <p className="font-medium">
+                          {formatItsReference(input.schoolName, itsQuote.address)}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  <Field label="ITS product (1Gb bearer · 3-year term)">
+                    {itsQuote && itsQuote.products.length > 0 ? (
+                      <Select
+                        value={input.itsProductUuid ?? ""}
+                        onValueChange={(uuid) => {
+                          const p = itsQuote.products.find((x) => x.uuid === uuid);
+                          if (p) applyProduct(p, itsQuote.address);
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a product…" />
+                        </SelectTrigger>
                         <SelectContent>
-                          {CARRIERS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                          {[...itsQuote.products]
+                            .sort((a, b) => {
+                              if (a.speed !== b.speed) return a.speed - b.speed;
+                              return Number(a.monthly_cost) - Number(b.monthly_cost);
+                            })
+                            .map((p) => (
+                              <SelectItem key={p.uuid} value={p.uuid}>
+                                {labelFor(p.supplier)} — {p.speed} Mbps /{" "}
+                                {p.bearer >= 1000 ? "1Gb" : `${p.bearer} Mbps`} · £
+                                {Number(p.monthly_cost).toLocaleString("en-GB", {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                                /mo · install £
+                                {Number(p.install_cost).toLocaleString("en-GB")}
+                              </SelectItem>
+                            ))}
                         </SelectContent>
                       </Select>
+                    ) : (
+                      <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+                        Enter a school name and postcode above, then click <em>Get pricing</em> to
+                        load ITS products.
+                      </div>
+                    )}
+                  </Field>
+
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <Field label="Carrier">
+                      <Input value={input.carrier} readOnly className="bg-muted/40" />
                     </Field>
                     <Field label="Speed (Mbps)">
-                      <Select value={String(input.speedMbps)} onValueChange={(v) => update("speedMbps", Number(v))}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {availableSpeeds.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                      <Input value={input.speedMbps} readOnly className="bg-muted/40" />
                     </Field>
                     <Field label="Bearer (Mbps)">
-                      <Select value={String(input.bearerMbps)} onValueChange={(v) => update("bearerMbps", Number(v))}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {availableBearers.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                      <Input value={input.bearerMbps} readOnly className="bg-muted/40" />
                     </Field>
                     <Field label="Monthly leased line cost (£)">
                       <Input
@@ -388,26 +416,6 @@ function CalculatorPage() {
                 </div>
               </div>
             </div>
-          </TabsContent>
-
-          <TabsContent value="live-results">
-            <LiveResultsTab
-              quote={itsQuote}
-              onApply={(p) => {
-                const mappedCarrier = (CARRIERS as readonly string[]).includes(labelFor(p.supplier))
-                  ? (labelFor(p.supplier) as QuoteInput["carrier"])
-                  : input.carrier;
-                setInput((prev) => ({
-                  ...prev,
-                  carrier: mappedCarrier,
-                  speedMbps: p.speed,
-                  bearerMbps: p.bearer,
-                  monthlyLeasedLine: Math.round(Number(p.monthly_cost) * 100) / 100,
-                  setupCost: Math.round(Number(p.install_cost) * 100) / 100,
-                }));
-                toast.success(`Applied ${labelFor(p.supplier)} ${p.speed}/${p.bearer} Mbps`);
-              }}
-            />
           </TabsContent>
 
           <TabsContent value="saved">
@@ -553,165 +561,3 @@ function Row({ label, value, bold, muted }: { label: string; value: string; bold
   );
 }
 
-function LiveResultsTab({
-  quote,
-  onApply,
-}: {
-  quote: ITSQuoteResponse | null;
-  onApply: (p: ITSProduct) => void;
-}) {
-  if (!quote) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Live results</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Fetch live pricing on the Calculator tab to see the full ITS API result set here.
-          </p>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Database className="h-4 w-4" /> No data yet.
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const cheapestOverall = [...quote.products].sort(
-    (a, b) => Number(a.monthly_cost) - Number(b.monthly_cost),
-  )[0];
-
-  // Group by speed; each entry already filtered to cheapest per carrier+speed server-side.
-  const bySpeed = new Map<number, ITSProduct[]>();
-  for (const p of quote.products) {
-    const arr = bySpeed.get(p.speed) ?? [];
-    arr.push(p);
-    bySpeed.set(p.speed, arr);
-  }
-  const speeds = Array.from(bySpeed.keys()).sort((a, b) => a - b);
-
-  return (
-    <div className="space-y-4">
-      <Card className="border-primary/40">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">
-            ITS Technology Group — live availability
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            {quote.address.address_line_1
-              ? `${quote.address.address_line_1}, `
-              : ""}
-            {quote.address.town ? `${quote.address.town}, ` : ""}
-            {quote.address.postcode} · 3-year term · cheapest per carrier per speed ·{" "}
-            {quote.products.length} result{quote.products.length === 1 ? "" : "s"}
-            {quote.isMock && (
-              <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-900">
-                MOCK DATA
-              </span>
-            )}
-          </p>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md bg-primary/5 border border-primary/30 p-3 text-sm">
-            <span className="text-muted-foreground">Cheapest overall:</span>{" "}
-            <span className="font-semibold">
-              {labelFor(cheapestOverall.supplier)} — {cheapestOverall.speed}/
-              {cheapestOverall.bearer} Mbps
-            </span>{" "}
-            at{" "}
-            <span className="font-semibold text-primary">
-              £
-              {Number(cheapestOverall.monthly_cost).toLocaleString("en-GB", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-              /mo
-            </span>{" "}
-            (install £{Number(cheapestOverall.install_cost).toLocaleString("en-GB")})
-          </div>
-        </CardContent>
-      </Card>
-
-      {speeds.map((speed) => {
-        const rows = [...(bySpeed.get(speed) ?? [])].sort(
-          (a, b) => Number(a.monthly_cost) - Number(b.monthly_cost),
-        );
-        const minMonthly = Number(rows[0].monthly_cost);
-        return (
-          <Card key={speed}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">{speed} Mbps</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-xs text-muted-foreground">
-                      <th className="py-2">Carrier</th>
-                      <th className="py-2">Product</th>
-                      <th className="py-2">Bearer</th>
-                      <th className="py-2">Term</th>
-                      <th className="py-2 text-right">Monthly</th>
-                      <th className="py-2 text-right">Install</th>
-                      <th className="py-2 text-right">3-yr total</th>
-                      <th className="py-2"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((p) => {
-                      const monthly = Number(p.monthly_cost);
-                      const install = Number(p.install_cost);
-                      const isCheapest = monthly === minMonthly;
-                      return (
-                        <tr
-                          key={p.uuid}
-                          className={`border-b ${isCheapest ? "bg-primary/5" : ""}`}
-                        >
-                          <td className="py-2 font-medium">
-                            {labelFor(p.supplier)}
-                            {isCheapest && (
-                              <Badge variant="outline" className="ml-2 border-primary text-primary">
-                                Cheapest
-                              </Badge>
-                            )}
-                          </td>
-                          <td className="py-2 text-xs text-muted-foreground">
-                            {p.product_name}
-                          </td>
-                          <td className="py-2">{p.bearer} Mbps</td>
-                          <td className="py-2">{p.term_months} mo</td>
-                          <td className="py-2 text-right font-semibold">
-                            £
-                            {monthly.toLocaleString("en-GB", {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
-                          </td>
-                          <td className="py-2 text-right">
-                            £{install.toLocaleString("en-GB")}
-                          </td>
-                          <td className="py-2 text-right">
-                            £
-                            {(monthly * 36 + install).toLocaleString("en-GB", {
-                              maximumFractionDigits: 0,
-                            })}
-                          </td>
-                          <td className="py-2 text-right">
-                            <Button size="sm" variant="outline" onClick={() => onApply(p)}>
-                              Use
-                            </Button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })}
-    </div>
-  );
-}

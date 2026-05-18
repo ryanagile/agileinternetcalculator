@@ -158,12 +158,9 @@ export const getItsQuote = createServerFn({ method: "POST" })
       return { ok: false, code: "INVALID_POSTCODE", error: "No coordinates for postcode" };
     }
 
-    // 2) Search ITS availability — request a full range of speeds, all on 36-month terms.
+    // 2) Search ITS availability — request all speeds on a 1Gb bearer only, 36-month terms.
     const SPEED_OPTIONS = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
-    const BEARER_OPTIONS = [100, 1000];
-    const connections = SPEED_OPTIONS.flatMap((speed) =>
-      BEARER_OPTIONS.filter((b) => b >= speed).map((bearer) => ({ bearer, speed })),
-    );
+    const connections = SPEED_OPTIONS.map((speed) => ({ bearer: 1000, speed }));
 
     const body = {
       postcode: normalizedPostcode,
@@ -209,8 +206,10 @@ export const getItsQuote = createServerFn({ method: "POST" })
     const avail = itsJson?.data;
     const allQuotes = avail?.quotes ?? [];
 
-    // Enforce 3-year term only (in case API returns others)
-    const termFiltered = allQuotes.filter((q) => Number(q.term_months) === 36);
+    // Enforce 3-year term and 1Gb bearer only.
+    const termFiltered = allQuotes.filter(
+      (q) => Number(q.term_months) === 36 && Number(q.bearer) === 1000,
+    );
 
     if (!avail || termFiltered.length === 0) {
       return { ok: false, code: "NO_AVAILABILITY", error: "No 3-year connectivity products available at this address" };

@@ -1,4 +1,4 @@
-export type Carrier = "Virgin Media" | "Sky" | "Openreach" | "CityFibre" | "Virtual1";
+export type Carrier = string;
 export type BackupType = "None" | "SoGEA" | "FTTP";
 
 export interface QuoteInput {
@@ -14,6 +14,8 @@ export interface QuoteInput {
   includeNetsweeper: boolean;
   pupils: number;
   backup: BackupType;
+  itsProductUuid?: string;
+  itsAddressLine?: string;
 }
 
 export interface CostBreakdown {
@@ -92,7 +94,7 @@ export const fmt = (n: number) =>
   }).format(n);
 
 export const SPEEDS = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
-export const CARRIERS: Carrier[] = ["Virgin Media", "Sky", "Openreach", "CityFibre", "Virtual1"];
+export const CARRIERS: string[] = ["Virgin Media", "Sky", "Openreach", "CityFibre", "Virtual1"];
 export const BACKUPS: BackupType[] = ["None", "SoGEA", "FTTP"];
 
 export function defaultInput(): QuoteInput {
