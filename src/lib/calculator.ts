@@ -94,7 +94,7 @@ export const fmt = (n: number) =>
   }).format(n);
 
 export const SPEEDS = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
-export const CARRIERS: Carrier[] = ["Virgin Media", "Sky", "Openreach", "CityFibre", "Virtual1"];
+export const CARRIERS: string[] = ["Virgin Media", "Sky", "Openreach", "CityFibre", "Virtual1"];
 export const BACKUPS: BackupType[] = ["None", "SoGEA", "FTTP"];
 
 export function defaultInput(): QuoteInput {
