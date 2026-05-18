@@ -166,6 +166,18 @@ function CalculatorPage() {
 
   const comparedQuotes = saved.filter((q) => compareIds.includes(q.id));
 
+  const cheapestBySpeed = useMemo<ITSProduct[]>(() => {
+    if (!itsQuote) return [];
+    const map = new Map<number, ITSProduct>();
+    for (const p of itsQuote.products) {
+      const cur = map.get(p.speed);
+      if (!cur || Number(p.monthly_cost) < Number(cur.monthly_cost)) {
+        map.set(p.speed, p);
+      }
+    }
+    return [...map.values()].sort((a, b) => a.speed - b.speed);
+  }, [itsQuote]);
+
   return (
     <div className="min-h-screen bg-background">
       <Toaster richColors position="top-right" />
