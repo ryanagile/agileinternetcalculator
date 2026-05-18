@@ -11,6 +11,7 @@ export interface QuoteInput {
   marginPct: number;
   fortigateCost: number;
   setupCost: number;
+  carrierInstallCost: number;
   includeNetsweeper: boolean;
   pupils: number;
   backup: BackupType;
