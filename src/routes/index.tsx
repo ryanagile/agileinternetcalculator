@@ -272,46 +272,57 @@ function CalculatorPage() {
                     )}
                   </QuoteFetcher>
 
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <Field label="Carrier">
-                      <Input value={input.carrier} readOnly className="bg-muted/40" />
-                    </Field>
-                    <Field label="Speed (Mbps)">
-                      <Input value={input.speedMbps} readOnly className="bg-muted/40" />
-                    </Field>
-                    <Field label="Bearer (Mbps)">
-                      <Input value={input.bearerMbps} readOnly className="bg-muted/40" />
-                    </Field>
-                    <Field label="Monthly leased line cost (£)">
-                      <Input value={input.monthlyLeasedLine} readOnly className="bg-muted/40" />
-                    </Field>
-                    <Field label="Carrier install cost (£)">
-                      <Input value={input.carrierInstallCost} readOnly className="bg-muted/40" />
-                    </Field>
-                    <Field label="Margin (%)">
-                      <Input
-                        type="number"
-                        min={0}
-                        value={input.marginPct}
-                        onChange={(e) => update("marginPct", Number(e.target.value))}
-                      />
-                    </Field>
-                    <Field label="FortiGate cost (£)">
-                      <Input
-                        type="number"
-                        min={0}
-                        value={input.fortigateCost}
-                        onChange={(e) => update("fortigateCost", Number(e.target.value))}
-                      />
-                    </Field>
-                    <Field label="Setup cost (£) — internal">
-                      <Input
-                        type="number"
-                        min={0}
-                        value={input.setupCost}
-                        onChange={(e) => update("setupCost", Number(e.target.value))}
-                      />
-                    </Field>
+                  <div className="grid md:grid-cols-2 gap-x-6 gap-y-4">
+                    {/* Left: ITS-returned (read-only) */}
+                    <div className="space-y-4">
+                      <Field label="Carrier">
+                        <Input value={input.carrier} readOnly className="bg-muted/40" />
+                      </Field>
+                      <div className="grid grid-cols-2 gap-3">
+                        <Field label="Speed (Mbps)">
+                          <Input value={input.speedMbps} readOnly className="bg-muted/40" />
+                        </Field>
+                        <Field label="Bearer (Mbps)">
+                          <Input value={input.bearerMbps} readOnly className="bg-muted/40" />
+                        </Field>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <Field label="Carrier install cost (£)">
+                          <Input value={input.carrierInstallCost} readOnly className="bg-muted/40" />
+                        </Field>
+                        <Field label="Monthly leased line cost (£)">
+                          <Input value={input.monthlyLeasedLine} readOnly className="bg-muted/40" />
+                        </Field>
+                      </div>
+                    </div>
+
+                    {/* Right: user-editable */}
+                    <div className="space-y-4">
+                      <Field label="FortiGate cost (£)">
+                        <Input
+                          type="number"
+                          min={0}
+                          value={input.fortigateCost}
+                          onChange={(e) => update("fortigateCost", Number(e.target.value))}
+                        />
+                      </Field>
+                      <Field label="Setup cost (£) — internal">
+                        <Input
+                          type="number"
+                          min={0}
+                          value={input.setupCost}
+                          onChange={(e) => update("setupCost", Number(e.target.value))}
+                        />
+                      </Field>
+                      <Field label="Margin (%)">
+                        <Input
+                          type="number"
+                          min={0}
+                          value={input.marginPct}
+                          onChange={(e) => update("marginPct", Number(e.target.value))}
+                        />
+                      </Field>
+                    </div>
                   </div>
 
                   <Separator />
