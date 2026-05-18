@@ -1,4 +1,4 @@
-export type Carrier = "Virgin Media" | "Sky" | "Openreach" | "CityFibre" | "Virtual1";
+export type Carrier = string;
 export type BackupType = "None" | "SoGEA" | "FTTP";
 
 export interface QuoteInput {
@@ -14,6 +14,8 @@ export interface QuoteInput {
   includeNetsweeper: boolean;
   pupils: number;
   backup: BackupType;
+  itsProductUuid?: string;
+  itsAddressLine?: string;
 }
 
 export interface CostBreakdown {
