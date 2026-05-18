@@ -410,6 +410,7 @@ function CalculatorPage() {
             />
           </TabsContent>
 
+          <TabsContent value="saved">
             <Card>
               <CardHeader><CardTitle>Saved quotes</CardTitle></CardHeader>
               <CardContent>
