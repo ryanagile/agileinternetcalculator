@@ -140,7 +140,15 @@ export const getItsQuote = createServerFn({ method: "POST" })
       lat = pcJson.result?.latitude;
       lng = pcJson.result?.longitude;
       town = pcJson.result?.admin_district;
-      county = pcJson.result?.admin_county ?? undefined;
+      // ITS API quietly excludes some carriers (e.g. Virgin Media) when the
+      // `county` field is missing from the request. Always send a string —
+      // fall back to admin_district, parish or region when admin_county is null.
+      county =
+        pcJson.result?.admin_county ??
+        pcJson.result?.admin_district ??
+        pcJson.result?.parish ??
+        pcJson.result?.region ??
+        "";
     } catch (err) {
       console.error("[its] postcode lookup failed", err);
       if (allowMock) return mockResponse(normalizedPostcode);
