@@ -85,6 +85,7 @@ function CalculatorPage() {
   const [saved, setSaved] = useState<SavedQuote[]>([]);
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [itsQuote, setItsQuote] = useState<ITSQuoteResponse | null>(null);
+  const [productModalOpen, setProductModalOpen] = useState(false);
 
   useEffect(() => {
     setSaved(loadQuotes());
@@ -103,7 +104,7 @@ function CalculatorPage() {
       speedMbps: p.speed,
       bearerMbps: p.bearer,
       monthlyLeasedLine: Math.round(Number(p.monthly_cost) * 100) / 100,
-      setupCost: Math.round(Number(p.install_cost) * 100) / 100,
+      carrierInstallCost: Math.round(Number(p.install_cost) * 100) / 100,
       itsProductUuid: p.uuid,
       itsAddressLine: addr ? formatItsReference(prev.schoolName, addr) : prev.itsAddressLine,
     }));
