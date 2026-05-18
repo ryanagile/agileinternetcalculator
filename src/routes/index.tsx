@@ -382,7 +382,8 @@ function CalculatorPage() {
                   <CardContent className="text-sm space-y-1.5">
                     <Row label="Leased line" value={fmt(breakdown.leasedLine3yr)} />
                     <Row label="FortiGate" value={fmt(breakdown.fortigate)} />
-                    <Row label="Setup" value={fmt(breakdown.setup)} />
+                    <Row label="Setup (internal)" value={fmt(breakdown.setup)} />
+                    <Row label="Carrier install" value={fmt(breakdown.carrierInstall)} />
                     {input.includeNetsweeper && (
                       <>
                         <Row label="Netsweeper setup" value={fmt(breakdown.netsweeperSetup)} />
