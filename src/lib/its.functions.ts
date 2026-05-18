@@ -158,7 +158,13 @@ export const getItsQuote = createServerFn({ method: "POST" })
       return { ok: false, code: "INVALID_POSTCODE", error: "No coordinates for postcode" };
     }
 
-    // 2) Search ITS availability — synchronous "multiple" search returns quotes inline
+    // 2) Search ITS availability — request a full range of speeds, all on 36-month terms.
+    const SPEED_OPTIONS = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
+    const BEARER_OPTIONS = [100, 1000];
+    const connections = SPEED_OPTIONS.flatMap((speed) =>
+      BEARER_OPTIONS.filter((b) => b >= speed).map((bearer) => ({ bearer, speed })),
+    );
+
     const body = {
       postcode: normalizedPostcode,
       address_line_1: data.schoolName.slice(0, 100),
@@ -168,10 +174,7 @@ export const getItsQuote = createServerFn({ method: "POST" })
       longitude: lng,
       terms: ["3"],
       term_months: ["36"],
-      connections: [
-        { bearer: 1000, speed: 100 },
-        { bearer: 1000, speed: 1000 },
-      ],
+      connections,
     };
 
     let itsJson: { data?: ITSAvailability } | undefined;
@@ -204,22 +207,40 @@ export const getItsQuote = createServerFn({ method: "POST" })
     }
 
     const avail = itsJson?.data;
-    const quotes = avail?.quotes ?? [];
+    const allQuotes = avail?.quotes ?? [];
 
-    if (!avail || quotes.length === 0) {
-      return { ok: false, code: "NO_AVAILABILITY", error: "No connectivity products available at this address" };
+    // Enforce 3-year term only (in case API returns others)
+    const termFiltered = allQuotes.filter((q) => Number(q.term_months) === 36);
+
+    if (!avail || termFiltered.length === 0) {
+      return { ok: false, code: "NO_AVAILABILITY", error: "No 3-year connectivity products available at this address" };
     }
 
-    const cheapest = pickCheapest(quotes)!;
+    // For each (speed, carrier) keep the cheapest by monthly_cost.
+    const cheapestBySpeedCarrier = new Map<string, ITSProduct>();
+    for (const q of termFiltered) {
+      const carrierKey = (q.supplier || "").toLowerCase();
+      const key = `${q.speed}|${carrierKey}`;
+      const existing = cheapestBySpeedCarrier.get(key);
+      if (!existing || Number(q.monthly_cost) < Number(existing.monthly_cost)) {
+        cheapestBySpeedCarrier.set(key, q);
+      }
+    }
+    const products = Array.from(cheapestBySpeedCarrier.values()).sort((a, b) => {
+      if (a.speed !== b.speed) return a.speed - b.speed;
+      return Number(a.monthly_cost) - Number(b.monthly_cost);
+    });
+
+    const cheapest = pickCheapest(products)!;
     return {
       ok: true,
       carrier: labelFor(cheapest.supplier),
-      speeds: Array.from(new Set(quotes.map((q) => q.speed))).sort((a, b) => a - b),
-      bearerOptions: Array.from(new Set(quotes.map((q) => q.bearer))).sort((a, b) => a - b),
+      speeds: Array.from(new Set(products.map((q) => q.speed))).sort((a, b) => a - b),
+      bearerOptions: Array.from(new Set(products.map((q) => q.bearer))).sort((a, b) => a - b),
       monthlyCost: Number(cheapest.monthly_cost),
       setupCost: Number(cheapest.install_cost),
       contractLength: cheapest.term_months,
-      products: quotes,
+      products,
       address: avail.address ?? { postcode: normalizedPostcode },
       fetchedAt: new Date().toISOString(),
     };
