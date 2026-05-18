@@ -218,29 +218,71 @@ function CalculatorPage() {
                         placeholder="SW1A 1AA"
                       />
                     </Field>
-                    <Field label="Carrier">
-                      <Select value={input.carrier} onValueChange={(v) => update("carrier", v as QuoteInput["carrier"])}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
+                  </div>
+
+                  {itsQuote?.address && (
+                    <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm flex items-start gap-2">
+                      <MapPin className="h-4 w-4 mt-0.5 text-primary shrink-0" />
+                      <div className="space-y-0.5">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          ITS reference
+                        </p>
+                        <p className="font-medium">
+                          {formatItsReference(input.schoolName, itsQuote.address)}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  <Field label="ITS product (1Gb bearer · 3-year term)">
+                    {itsQuote && itsQuote.products.length > 0 ? (
+                      <Select
+                        value={input.itsProductUuid ?? ""}
+                        onValueChange={(uuid) => {
+                          const p = itsQuote.products.find((x) => x.uuid === uuid);
+                          if (p) applyProduct(p, itsQuote.address);
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a product…" />
+                        </SelectTrigger>
                         <SelectContent>
-                          {CARRIERS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                          {[...itsQuote.products]
+                            .sort((a, b) => {
+                              if (a.speed !== b.speed) return a.speed - b.speed;
+                              return Number(a.monthly_cost) - Number(b.monthly_cost);
+                            })
+                            .map((p) => (
+                              <SelectItem key={p.uuid} value={p.uuid}>
+                                {labelFor(p.supplier)} — {p.speed} Mbps /{" "}
+                                {p.bearer >= 1000 ? "1Gb" : `${p.bearer} Mbps`} · £
+                                {Number(p.monthly_cost).toLocaleString("en-GB", {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                                /mo · install £
+                                {Number(p.install_cost).toLocaleString("en-GB")}
+                              </SelectItem>
+                            ))}
                         </SelectContent>
                       </Select>
+                    ) : (
+                      <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+                        Enter a school name and postcode above, then click <em>Get pricing</em> to
+                        load ITS products.
+                      </div>
+                    )}
+                  </Field>
+
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <Field label="Carrier">
+                      <Input value={input.carrier} readOnly className="bg-muted/40" />
                     </Field>
                     <Field label="Speed (Mbps)">
-                      <Select value={String(input.speedMbps)} onValueChange={(v) => update("speedMbps", Number(v))}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {availableSpeeds.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                      <Input value={input.speedMbps} readOnly className="bg-muted/40" />
                     </Field>
                     <Field label="Bearer (Mbps)">
-                      <Select value={String(input.bearerMbps)} onValueChange={(v) => update("bearerMbps", Number(v))}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {availableBearers.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                      <Input value={input.bearerMbps} readOnly className="bg-muted/40" />
                     </Field>
                     <Field label="Monthly leased line cost (£)">
                       <Input
