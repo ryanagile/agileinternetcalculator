@@ -14,6 +14,7 @@ interface Props {
   onSchoolNameChange: (v: string) => void;
   onPostcodeChange: (v: string) => void;
   onQuote: (quote: ITSQuoteResponse) => void;
+  children?: React.ReactNode;
 }
 
 export function QuoteFetcher({
