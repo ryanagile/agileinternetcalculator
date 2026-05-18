@@ -48,7 +48,8 @@ export function generateInternalPDF(input: QuoteInput, b: CostBreakdown) {
     body: [
       ["Leased line (£" + input.monthlyLeasedLine + "/mo × 36)", fmt(b.leasedLine3yr)],
       ["FortiGate", fmt(b.fortigate)],
-      ["Setup", fmt(b.setup)],
+      ["Setup (internal)", fmt(b.setup)],
+      ["Carrier install", fmt(b.carrierInstall)],
       ["Netsweeper setup", fmt(b.netsweeperSetup)],
       ["Netsweeper licences", fmt(b.netsweeperLicences)],
       ["Backup line (3 yrs)", fmt(b.backupCost3yr)],
