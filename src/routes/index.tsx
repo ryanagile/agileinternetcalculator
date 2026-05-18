@@ -158,12 +158,6 @@ function CalculatorPage() {
     );
   };
 
-  const speedComparison = useMemo(() => {
-    return SPEEDS.map((s) => {
-      const b = calculate({ ...input, speedMbps: s });
-      return { speed: s, price: b.finalAnnualPrice, total: b.total3yrPrice, profit: b.profit3yr };
-    });
-  }, [input]);
 
   const comparedQuotes = saved.filter((q) => compareIds.includes(q.id));
 
