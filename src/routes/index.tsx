@@ -490,14 +490,24 @@ function CalculatorPage() {
                           ["Annual price", (q: SavedQuote) => fmt(q.breakdown.finalAnnualPrice)],
                           ["3-year total", (q: SavedQuote) => fmt(q.breakdown.total3yrPrice)],
                           ["Profit", (q: SavedQuote) => fmt(q.breakdown.profit3yr)],
-                        ].map(([label, fn]) => (
-                          <tr key={label as string} className="border-b">
-                            <td className="py-2 font-medium text-muted-foreground">{label as string}</td>
-                            {comparedQuotes.map((q) => (
-                              <td key={q.id} className="py-2">{(fn as (q: SavedQuote) => string)(q)}</td>
-                            ))}
-                          </tr>
-                        ))}
+                        ].map(([label, fn]) => {
+                          const getter = fn as (q: SavedQuote) => string;
+                          const values = comparedQuotes.map((q) => getter(q));
+                          const differs = comparedQuotes.length > 1 && new Set(values).size > 1;
+                          return (
+                            <tr key={label as string} className="border-b">
+                              <td className="py-2 font-medium text-muted-foreground">{label as string}</td>
+                              {comparedQuotes.map((q, i) => (
+                                <td
+                                  key={q.id}
+                                  className={`py-2 ${differs ? "bg-amber-100 dark:bg-amber-900/30 font-semibold text-amber-900 dark:text-amber-100" : ""}`}
+                                >
+                                  {values[i]}
+                                </td>
+                              ))}
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
