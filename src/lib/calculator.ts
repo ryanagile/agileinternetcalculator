@@ -112,6 +112,7 @@ export function defaultInput(): QuoteInput {
     marginPct: 30,
     fortigateCost: 1000,
     setupCost: 500,
+    carrierInstallCost: 0,
     includeNetsweeper: false,
     pupils: 0,
     backup: "None",
