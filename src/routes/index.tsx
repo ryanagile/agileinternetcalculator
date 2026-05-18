@@ -11,13 +11,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
-import { Download, FileText, Save, Trash2, Calculator as CalcIcon, GitCompare, MapPin } from "lucide-react";
+import { Download, FileText, Save, Trash2, Calculator as CalcIcon, GitCompare, MapPin, Table as TableIcon } from "lucide-react";
 import {
   BACKUPS,
   SPEEDS,
@@ -78,6 +85,7 @@ function CalculatorPage() {
   const [saved, setSaved] = useState<SavedQuote[]>([]);
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [itsQuote, setItsQuote] = useState<ITSQuoteResponse | null>(null);
+  const [productModalOpen, setProductModalOpen] = useState(false);
 
   useEffect(() => {
     setSaved(loadQuotes());
@@ -96,7 +104,7 @@ function CalculatorPage() {
       speedMbps: p.speed,
       bearerMbps: p.bearer,
       monthlyLeasedLine: Math.round(Number(p.monthly_cost) * 100) / 100,
-      setupCost: Math.round(Number(p.install_cost) * 100) / 100,
+      carrierInstallCost: Math.round(Number(p.install_cost) * 100) / 100,
       itsProductUuid: p.uuid,
       itsAddressLine: addr ? formatItsReference(prev.schoolName, addr) : prev.itsAddressLine,
     }));
@@ -157,6 +165,18 @@ function CalculatorPage() {
   }, [input]);
 
   const comparedQuotes = saved.filter((q) => compareIds.includes(q.id));
+
+  const cheapestBySpeed = useMemo<ITSProduct[]>(() => {
+    if (!itsQuote) return [];
+    const map = new Map<number, ITSProduct>();
+    for (const p of itsQuote.products) {
+      const cur = map.get(p.speed);
+      if (!cur || Number(p.monthly_cost) < Number(cur.monthly_cost)) {
+        map.set(p.speed, p);
+      }
+    }
+    return [...map.values()].sort((a, b) => a.speed - b.speed);
+  }, [itsQuote]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -236,36 +256,28 @@ function CalculatorPage() {
 
                   <Field label="ITS product (1Gb bearer · 3-year term)">
                     {itsQuote && itsQuote.products.length > 0 ? (
-                      <Select
-                        value={input.itsProductUuid ?? ""}
-                        onValueChange={(uuid) => {
-                          const p = itsQuote.products.find((x) => x.uuid === uuid);
-                          if (p) applyProduct(p, itsQuote.address);
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a product…" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {[...itsQuote.products]
-                            .sort((a, b) => {
-                              if (a.speed !== b.speed) return a.speed - b.speed;
-                              return Number(a.monthly_cost) - Number(b.monthly_cost);
-                            })
-                            .map((p) => (
-                              <SelectItem key={p.uuid} value={p.uuid}>
-                                {labelFor(p.supplier)} — {p.speed} Mbps /{" "}
-                                {p.bearer >= 1000 ? "1Gb" : `${p.bearer} Mbps`} · £
-                                {Number(p.monthly_cost).toLocaleString("en-GB", {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                })}
-                                /mo · install £
-                                {Number(p.install_cost).toLocaleString("en-GB")}
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="flex items-center gap-3">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setProductModalOpen(true)}
+                        >
+                          <TableIcon className="h-4 w-4" />
+                          Browse ITS results
+                        </Button>
+                        {input.itsProductUuid ? (
+                          <p className="text-sm text-muted-foreground">
+                            Selected: <span className="font-medium text-foreground">{input.carrier}</span>{" "}
+                            · {input.speedMbps} Mbps · £
+                            {input.monthlyLeasedLine.toLocaleString("en-GB", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}/mo
+                          </p>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">No product selected.</p>
+                        )}
+                      </div>
                     ) : (
                       <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
                         Enter a school name and postcode above, then click <em>Get pricing</em> to
@@ -285,12 +297,10 @@ function CalculatorPage() {
                       <Input value={input.bearerMbps} readOnly className="bg-muted/40" />
                     </Field>
                     <Field label="Monthly leased line cost (£)">
-                      <Input
-                        type="number"
-                        min={0}
-                        value={input.monthlyLeasedLine}
-                        onChange={(e) => update("monthlyLeasedLine", Number(e.target.value))}
-                      />
+                      <Input value={input.monthlyLeasedLine} readOnly className="bg-muted/40" />
+                    </Field>
+                    <Field label="Carrier install cost (£)">
+                      <Input value={input.carrierInstallCost} readOnly className="bg-muted/40" />
                     </Field>
                     <Field label="Margin (%)">
                       <Input
@@ -308,7 +318,7 @@ function CalculatorPage() {
                         onChange={(e) => update("fortigateCost", Number(e.target.value))}
                       />
                     </Field>
-                    <Field label="Setup cost (£)">
+                    <Field label="Setup cost (£) — internal">
                       <Input
                         type="number"
                         min={0}
@@ -384,7 +394,8 @@ function CalculatorPage() {
                   <CardContent className="text-sm space-y-1.5">
                     <Row label="Leased line" value={fmt(breakdown.leasedLine3yr)} />
                     <Row label="FortiGate" value={fmt(breakdown.fortigate)} />
-                    <Row label="Setup" value={fmt(breakdown.setup)} />
+                    <Row label="Setup (internal)" value={fmt(breakdown.setup)} />
+                    <Row label="Carrier install" value={fmt(breakdown.carrierInstall)} />
                     {input.includeNetsweeper && (
                       <>
                         <Row label="Netsweeper setup" value={fmt(breakdown.netsweeperSetup)} />
@@ -539,6 +550,67 @@ function CalculatorPage() {
           </TabsContent>
         </Tabs>
       </main>
+
+      <Dialog open={productModalOpen} onOpenChange={setProductModalOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>ITS results — cheapest carrier per speed</DialogTitle>
+            <DialogDescription>
+              1Gb bearer · 36-month term. Click a row to apply it to the calculator.
+            </DialogDescription>
+          </DialogHeader>
+          {cheapestBySpeed.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No products available.</p>
+          ) : (
+            <div className="overflow-x-auto max-h-[60vh]">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-background">
+                  <tr className="border-b text-left">
+                    <th className="py-2 pr-2">Speed</th>
+                    <th className="py-2 pr-2">Carrier</th>
+                    <th className="py-2 pr-2">Product</th>
+                    <th className="py-2 pr-2 text-right">Monthly</th>
+                    <th className="py-2 pr-2 text-right">Install</th>
+                    <th className="py-2 pr-2 text-right">3-yr total</th>
+                    <th className="py-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cheapestBySpeed.map((p) => {
+                    const monthly = Number(p.monthly_cost);
+                    const install = Number(p.install_cost);
+                    const total3yr = monthly * 36 + install;
+                    const isSelected = p.uuid === input.itsProductUuid;
+                    return (
+                      <tr
+                        key={p.uuid}
+                        className={`border-b cursor-pointer hover:bg-accent/40 ${isSelected ? "bg-primary/5" : ""}`}
+                        onClick={() => {
+                          applyProduct(p, itsQuote?.address);
+                          setProductModalOpen(false);
+                          toast.success(`Applied ${labelFor(p.supplier)} ${p.speed} Mbps`);
+                        }}
+                      >
+                        <td className="py-2 pr-2 font-medium">{p.speed} Mbps</td>
+                        <td className="py-2 pr-2">{labelFor(p.supplier)}</td>
+                        <td className="py-2 pr-2 text-muted-foreground">{p.product_name}</td>
+                        <td className="py-2 pr-2 text-right">{fmt(monthly)}</td>
+                        <td className="py-2 pr-2 text-right">{fmt(install)}</td>
+                        <td className="py-2 pr-2 text-right">{fmt(total3yr)}</td>
+                        <td className="py-2 text-right">
+                          <Button size="sm" variant={isSelected ? "default" : "outline"}>
+                            {isSelected ? "Selected" : "Use"}
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

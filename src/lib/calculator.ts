@@ -11,6 +11,7 @@ export interface QuoteInput {
   marginPct: number;
   fortigateCost: number;
   setupCost: number;
+  carrierInstallCost: number;
   includeNetsweeper: boolean;
   pupils: number;
   backup: BackupType;
@@ -22,6 +23,7 @@ export interface CostBreakdown {
   leasedLine3yr: number;
   fortigate: number;
   setup: number;
+  carrierInstall: number;
   netsweeperSetup: number;
   netsweeperLicences: number;
   backupCost3yr: number;
@@ -48,6 +50,7 @@ export function calculate(input: QuoteInput): CostBreakdown {
   const leasedLine3yr = input.monthlyLeasedLine * 36;
   const fortigate = input.fortigateCost;
   const setup = input.setupCost;
+  const carrierInstall = input.carrierInstallCost;
   const netsweeperSetup = input.includeNetsweeper ? NETSWEEPER_SETUP : 0;
   const netsweeperLicences = input.includeNetsweeper
     ? input.pupils * NETSWEEPER_PER_PUPIL_3YR
@@ -56,7 +59,7 @@ export function calculate(input: QuoteInput): CostBreakdown {
 
   // marginable cost = everything except backup (backup sold at fixed price)
   const marginableCost3yr =
-    leasedLine3yr + fortigate + setup + netsweeperSetup + netsweeperLicences;
+    leasedLine3yr + fortigate + setup + carrierInstall + netsweeperSetup + netsweeperLicences;
   const annualMarginableCost = marginableCost3yr / 3;
   const annualPriceMarginable = roundUpTo5(
     annualMarginableCost * (1 + input.marginPct / 100),
@@ -72,6 +75,7 @@ export function calculate(input: QuoteInput): CostBreakdown {
     leasedLine3yr,
     fortigate,
     setup,
+    carrierInstall,
     netsweeperSetup,
     netsweeperLicences,
     backupCost3yr,
@@ -108,6 +112,7 @@ export function defaultInput(): QuoteInput {
     marginPct: 30,
     fortigateCost: 1000,
     setupCost: 500,
+    carrierInstallCost: 0,
     includeNetsweeper: false,
     pupils: 0,
     backup: "None",
