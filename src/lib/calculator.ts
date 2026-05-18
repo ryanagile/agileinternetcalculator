@@ -23,6 +23,7 @@ export interface CostBreakdown {
   leasedLine3yr: number;
   fortigate: number;
   setup: number;
+  carrierInstall: number;
   netsweeperSetup: number;
   netsweeperLicences: number;
   backupCost3yr: number;
