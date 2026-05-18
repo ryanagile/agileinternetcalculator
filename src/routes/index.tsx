@@ -32,6 +32,8 @@ import {
   QuoteInput,
 } from "@/lib/calculator";
 import { generateCustomerPDF, generateInternalPDF } from "@/lib/pdf";
+import { QuoteFetcher } from "@/components/calculator/QuoteFetcher";
+import type { ITSQuoteResponse } from "@/types/its";
 
 export const Route = createFileRoute("/")({
   component: CalculatorPage,
