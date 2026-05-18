@@ -32,6 +32,8 @@ import {
   QuoteInput,
 } from "@/lib/calculator";
 import { generateCustomerPDF, generateInternalPDF } from "@/lib/pdf";
+import { QuoteFetcher } from "@/components/calculator/QuoteFetcher";
+import type { ITSQuoteResponse } from "@/types/its";
 
 export const Route = createFileRoute("/")({
   component: CalculatorPage,
@@ -47,6 +49,7 @@ function CalculatorPage() {
   const [input, setInput] = useState<QuoteInput>(defaultInput);
   const [saved, setSaved] = useState<SavedQuote[]>([]);
   const [compareIds, setCompareIds] = useState<string[]>([]);
+  const [itsQuote, setItsQuote] = useState<ITSQuoteResponse | null>(null);
 
   useEffect(() => {
     setSaved(loadQuotes());
@@ -56,6 +59,52 @@ function CalculatorPage() {
 
   const update = <K extends keyof QuoteInput>(key: K, value: QuoteInput[K]) =>
     setInput((p) => ({ ...p, [key]: value }));
+
+  const handleItsQuote = (q: ITSQuoteResponse) => {
+    setItsQuote(q);
+    // Map ITS carrier label onto our 4-carrier enum where possible
+    const mappedCarrier = (CARRIERS as readonly string[]).includes(q.carrier)
+      ? (q.carrier as QuoteInput["carrier"])
+      : input.carrier;
+    setInput((p) => ({
+      ...p,
+      carrier: mappedCarrier,
+      speedMbps: q.speeds.includes(p.speedMbps) ? p.speedMbps : (q.speeds[0] ?? p.speedMbps),
+      bearerMbps: q.bearerOptions.includes(p.bearerMbps)
+        ? p.bearerMbps
+        : (q.bearerOptions[0] ?? p.bearerMbps),
+      monthlyLeasedLine: Math.round(q.monthlyCost * 100) / 100,
+      setupCost: Math.round(Number(q.setupCost) * 100) / 100,
+    }));
+    toast.success(`Live pricing loaded from ${q.carrier}${q.isMock ? " (mock)" : ""}`);
+  };
+
+  // When user changes speed/bearer in dropdown, re-pick the matching ITS product
+  // and update monthly + setup costs accordingly.
+  useEffect(() => {
+    if (!itsQuote) return;
+    const match = itsQuote.products.find(
+      (p) => p.speed === input.speedMbps && p.bearer === input.bearerMbps,
+    );
+    if (match) {
+      const newMonthly = Math.round(Number(match.monthly_cost) * 100) / 100;
+      const newSetup = Math.round(Number(match.install_cost) * 100) / 100;
+      if (
+        newMonthly !== input.monthlyLeasedLine ||
+        newSetup !== input.setupCost
+      ) {
+        setInput((p) => ({
+          ...p,
+          monthlyLeasedLine: newMonthly,
+          setupCost: newSetup,
+        }));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [input.speedMbps, input.bearerMbps, itsQuote]);
+
+  const availableSpeeds = itsQuote?.speeds.length ? itsQuote.speeds : SPEEDS;
+  const availableBearers = itsQuote?.bearerOptions.length ? itsQuote.bearerOptions : SPEEDS;
 
   const handleSave = () => {
     if (!input.schoolName.trim()) {
@@ -136,6 +185,14 @@ function CalculatorPage() {
                   <CardTitle>Quote details</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                  <QuoteFetcher
+                    schoolName={input.schoolName}
+                    postcode={input.postcode}
+                    onSchoolNameChange={(v) => update("schoolName", v)}
+                    onPostcodeChange={(v) => update("postcode", v)}
+                    onQuote={handleItsQuote}
+                  />
+
                   <div className="grid sm:grid-cols-2 gap-4">
                     <Field label="School name">
                       <Input
@@ -163,7 +220,7 @@ function CalculatorPage() {
                       <Select value={String(input.speedMbps)} onValueChange={(v) => update("speedMbps", Number(v))}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          {SPEEDS.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}
+                          {availableSpeeds.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </Field>
@@ -171,7 +228,7 @@ function CalculatorPage() {
                       <Select value={String(input.bearerMbps)} onValueChange={(v) => update("bearerMbps", Number(v))}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          {SPEEDS.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}
+                          {availableBearers.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </Field>
