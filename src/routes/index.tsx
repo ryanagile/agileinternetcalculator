@@ -33,7 +33,20 @@ import {
 } from "@/lib/calculator";
 import { generateCustomerPDF, generateInternalPDF } from "@/lib/pdf";
 import { QuoteFetcher } from "@/components/calculator/QuoteFetcher";
-import type { ITSQuoteResponse } from "@/types/its";
+import type { ITSQuoteResponse, ITSProduct } from "@/types/its";
+
+const SUPPLIER_LABEL: Record<string, string> = {
+  bt: "Openreach",
+  openreach: "Openreach",
+  sky: "Sky",
+  virgin_media: "Virgin Media",
+  cityfibre: "CityFibre",
+  virtual1: "Virtual1",
+  glide: "Glide",
+  zen: "Zen",
+  talktalk: "TalkTalk",
+};
+const labelFor = (s: string) => SUPPLIER_LABEL[(s ?? "").toLowerCase()] ?? (s || "Unknown");
 
 export const Route = createFileRoute("/")({
   component: CalculatorPage,
