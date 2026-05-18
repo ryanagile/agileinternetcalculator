@@ -166,6 +166,8 @@ export function QuoteFetcher({
           </div>
         </div>
       )}
+
+      {children}
     </div>
   );
 }
