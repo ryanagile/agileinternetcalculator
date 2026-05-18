@@ -17,10 +17,9 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
-import { Download, FileText, Save, Trash2, Calculator as CalcIcon, GitCompare, Database } from "lucide-react";
+import { Download, FileText, Save, Trash2, Calculator as CalcIcon, GitCompare, MapPin } from "lucide-react";
 import {
   BACKUPS,
-  CARRIERS,
   SPEEDS,
   SavedQuote,
   calculate,
@@ -33,7 +32,7 @@ import {
 } from "@/lib/calculator";
 import { generateCustomerPDF, generateInternalPDF } from "@/lib/pdf";
 import { QuoteFetcher } from "@/components/calculator/QuoteFetcher";
-import type { ITSQuoteResponse, ITSProduct } from "@/types/its";
+import type { ITSQuoteResponse, ITSProduct, ITSAddress } from "@/types/its";
 
 const SUPPLIER_LABEL: Record<string, string> = {
   bt: "Openreach",
@@ -46,7 +45,23 @@ const SUPPLIER_LABEL: Record<string, string> = {
   zen: "Zen",
   talktalk: "TalkTalk",
 };
-const labelFor = (s: string) => SUPPLIER_LABEL[(s ?? "").toLowerCase()] ?? (s || "Unknown");
+const labelFor = (s: string) =>
+  SUPPLIER_LABEL[(s ?? "").toLowerCase()] ??
+  (s ? s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, " ") : "Unknown");
+
+function formatItsReference(schoolName: string, address: ITSAddress): string {
+  const parts = [
+    schoolName,
+    address.address_line_1,
+    address.address_line_2,
+    address.address_line_3,
+    address.town,
+    address.county,
+    address.postcode,
+  ].filter((p): p is string => !!p && String(p).trim().length > 0);
+  const base = parts.join(", ");
+  return address.uprn ? `${base} - UPRN:${address.uprn}` : base;
+}
 
 export const Route = createFileRoute("/")({
   component: CalculatorPage,
