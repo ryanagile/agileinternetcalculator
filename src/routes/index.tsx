@@ -552,3 +552,166 @@ function Row({ label, value, bold, muted }: { label: string; value: string; bold
     </div>
   );
 }
+
+function LiveResultsTab({
+  quote,
+  onApply,
+}: {
+  quote: ITSQuoteResponse | null;
+  onApply: (p: ITSProduct) => void;
+}) {
+  if (!quote) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Live results</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Fetch live pricing on the Calculator tab to see the full ITS API result set here.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Database className="h-4 w-4" /> No data yet.
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const cheapestOverall = [...quote.products].sort(
+    (a, b) => Number(a.monthly_cost) - Number(b.monthly_cost),
+  )[0];
+
+  // Group by speed; each entry already filtered to cheapest per carrier+speed server-side.
+  const bySpeed = new Map<number, ITSProduct[]>();
+  for (const p of quote.products) {
+    const arr = bySpeed.get(p.speed) ?? [];
+    arr.push(p);
+    bySpeed.set(p.speed, arr);
+  }
+  const speeds = Array.from(bySpeed.keys()).sort((a, b) => a - b);
+
+  return (
+    <div className="space-y-4">
+      <Card className="border-primary/40">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">
+            ITS Technology Group — live availability
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            {quote.address.address_line_1
+              ? `${quote.address.address_line_1}, `
+              : ""}
+            {quote.address.town ? `${quote.address.town}, ` : ""}
+            {quote.address.postcode} · 3-year term · cheapest per carrier per speed ·{" "}
+            {quote.products.length} result{quote.products.length === 1 ? "" : "s"}
+            {quote.isMock && (
+              <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-900">
+                MOCK DATA
+              </span>
+            )}
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md bg-primary/5 border border-primary/30 p-3 text-sm">
+            <span className="text-muted-foreground">Cheapest overall:</span>{" "}
+            <span className="font-semibold">
+              {labelFor(cheapestOverall.supplier)} — {cheapestOverall.speed}/
+              {cheapestOverall.bearer} Mbps
+            </span>{" "}
+            at{" "}
+            <span className="font-semibold text-primary">
+              £
+              {Number(cheapestOverall.monthly_cost).toLocaleString("en-GB", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+              /mo
+            </span>{" "}
+            (install £{Number(cheapestOverall.install_cost).toLocaleString("en-GB")})
+          </div>
+        </CardContent>
+      </Card>
+
+      {speeds.map((speed) => {
+        const rows = [...(bySpeed.get(speed) ?? [])].sort(
+          (a, b) => Number(a.monthly_cost) - Number(b.monthly_cost),
+        );
+        const minMonthly = Number(rows[0].monthly_cost);
+        return (
+          <Card key={speed}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">{speed} Mbps</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-xs text-muted-foreground">
+                      <th className="py-2">Carrier</th>
+                      <th className="py-2">Product</th>
+                      <th className="py-2">Bearer</th>
+                      <th className="py-2">Term</th>
+                      <th className="py-2 text-right">Monthly</th>
+                      <th className="py-2 text-right">Install</th>
+                      <th className="py-2 text-right">3-yr total</th>
+                      <th className="py-2"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((p) => {
+                      const monthly = Number(p.monthly_cost);
+                      const install = Number(p.install_cost);
+                      const isCheapest = monthly === minMonthly;
+                      return (
+                        <tr
+                          key={p.uuid}
+                          className={`border-b ${isCheapest ? "bg-primary/5" : ""}`}
+                        >
+                          <td className="py-2 font-medium">
+                            {labelFor(p.supplier)}
+                            {isCheapest && (
+                              <Badge variant="outline" className="ml-2 border-primary text-primary">
+                                Cheapest
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="py-2 text-xs text-muted-foreground">
+                            {p.product_name}
+                          </td>
+                          <td className="py-2">{p.bearer} Mbps</td>
+                          <td className="py-2">{p.term_months} mo</td>
+                          <td className="py-2 text-right font-semibold">
+                            £
+                            {monthly.toLocaleString("en-GB", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </td>
+                          <td className="py-2 text-right">
+                            £{install.toLocaleString("en-GB")}
+                          </td>
+                          <td className="py-2 text-right">
+                            £
+                            {(monthly * 36 + install).toLocaleString("en-GB", {
+                              maximumFractionDigits: 0,
+                            })}
+                          </td>
+                          <td className="py-2 text-right">
+                            <Button size="sm" variant="outline" onClick={() => onApply(p)}>
+                              Use
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
