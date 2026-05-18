@@ -112,10 +112,11 @@ function CalculatorPage() {
 
   const handleItsQuote = (q: ITSQuoteResponse) => {
     setItsQuote(q);
-    // Auto-select cheapest product
-    const cheapest = [...q.products].sort(
-      (a, b) => Number(a.monthly_cost) - Number(b.monthly_cost),
-    )[0];
+    // Cheapest first, then fastest speed at that price
+    const cheapest = [...q.products].sort((a, b) => {
+      const d = Number(a.monthly_cost) - Number(b.monthly_cost);
+      return d !== 0 ? d : b.speed - a.speed;
+    })[0];
     if (cheapest) {
       applyProduct(cheapest, q.address);
       toast.success(
