@@ -11,13 +11,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
-import { Download, FileText, Save, Trash2, Calculator as CalcIcon, GitCompare, MapPin } from "lucide-react";
+import { Download, FileText, Save, Trash2, Calculator as CalcIcon, GitCompare, MapPin, Table as TableIcon } from "lucide-react";
 import {
   BACKUPS,
   SPEEDS,
