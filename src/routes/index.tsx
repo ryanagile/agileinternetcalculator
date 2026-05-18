@@ -390,7 +390,26 @@ function CalculatorPage() {
             </div>
           </TabsContent>
 
-          <TabsContent value="saved">
+          <TabsContent value="live-results">
+            <LiveResultsTab
+              quote={itsQuote}
+              onApply={(p) => {
+                const mappedCarrier = (CARRIERS as readonly string[]).includes(labelFor(p.supplier))
+                  ? (labelFor(p.supplier) as QuoteInput["carrier"])
+                  : input.carrier;
+                setInput((prev) => ({
+                  ...prev,
+                  carrier: mappedCarrier,
+                  speedMbps: p.speed,
+                  bearerMbps: p.bearer,
+                  monthlyLeasedLine: Math.round(Number(p.monthly_cost) * 100) / 100,
+                  setupCost: Math.round(Number(p.install_cost) * 100) / 100,
+                }));
+                toast.success(`Applied ${labelFor(p.supplier)} ${p.speed}/${p.bearer} Mbps`);
+              }}
+            />
+          </TabsContent>
+
             <Card>
               <CardHeader><CardTitle>Saved quotes</CardTitle></CardHeader>
               <CardContent>
