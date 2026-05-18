@@ -244,36 +244,28 @@ function CalculatorPage() {
 
                   <Field label="ITS product (1Gb bearer · 3-year term)">
                     {itsQuote && itsQuote.products.length > 0 ? (
-                      <Select
-                        value={input.itsProductUuid ?? ""}
-                        onValueChange={(uuid) => {
-                          const p = itsQuote.products.find((x) => x.uuid === uuid);
-                          if (p) applyProduct(p, itsQuote.address);
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a product…" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {[...itsQuote.products]
-                            .sort((a, b) => {
-                              if (a.speed !== b.speed) return a.speed - b.speed;
-                              return Number(a.monthly_cost) - Number(b.monthly_cost);
-                            })
-                            .map((p) => (
-                              <SelectItem key={p.uuid} value={p.uuid}>
-                                {labelFor(p.supplier)} — {p.speed} Mbps /{" "}
-                                {p.bearer >= 1000 ? "1Gb" : `${p.bearer} Mbps`} · £
-                                {Number(p.monthly_cost).toLocaleString("en-GB", {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                })}
-                                /mo · install £
-                                {Number(p.install_cost).toLocaleString("en-GB")}
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="flex items-center gap-3">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setProductModalOpen(true)}
+                        >
+                          <TableIcon className="h-4 w-4" />
+                          Browse ITS results
+                        </Button>
+                        {input.itsProductUuid ? (
+                          <p className="text-sm text-muted-foreground">
+                            Selected: <span className="font-medium text-foreground">{input.carrier}</span>{" "}
+                            · {input.speedMbps} Mbps · £
+                            {input.monthlyLeasedLine.toLocaleString("en-GB", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}/mo
+                          </p>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">No product selected.</p>
+                        )}
+                      </div>
                     ) : (
                       <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
                         Enter a school name and postcode above, then click <em>Get pricing</em> to
@@ -293,12 +285,10 @@ function CalculatorPage() {
                       <Input value={input.bearerMbps} readOnly className="bg-muted/40" />
                     </Field>
                     <Field label="Monthly leased line cost (£)">
-                      <Input
-                        type="number"
-                        min={0}
-                        value={input.monthlyLeasedLine}
-                        onChange={(e) => update("monthlyLeasedLine", Number(e.target.value))}
-                      />
+                      <Input value={input.monthlyLeasedLine} readOnly className="bg-muted/40" />
+                    </Field>
+                    <Field label="Carrier install cost (£)">
+                      <Input value={input.carrierInstallCost} readOnly className="bg-muted/40" />
                     </Field>
                     <Field label="Margin (%)">
                       <Input
@@ -316,7 +306,7 @@ function CalculatorPage() {
                         onChange={(e) => update("fortigateCost", Number(e.target.value))}
                       />
                     </Field>
-                    <Field label="Setup cost (£)">
+                    <Field label="Setup cost (£) — internal">
                       <Input
                         type="number"
                         min={0}
