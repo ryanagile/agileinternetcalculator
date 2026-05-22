@@ -73,3 +73,23 @@ export interface ITSQuoteError {
 }
 
 export type ITSQuoteResult = ITSQuoteResponse | ITSQuoteError;
+
+// Address search shapes (getAddress.io-backed)
+export interface ITSAddressSuggestion {
+  id: string;
+  address: string;
+}
+
+export interface ITSAddressDetails {
+  postcode: string;
+  line_1: string;
+  line_2: string;
+  line_3: string;
+  town: string;
+  county: string;
+  premise: string;
+  thoroughfare: string;
+  latitude?: number;
+  longitude?: number;
+  uprn?: string;
+}
