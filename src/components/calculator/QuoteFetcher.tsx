@@ -4,9 +4,25 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Loader2, RefreshCw, Search, AlertCircle, CheckCircle2 } from "lucide-react";
-import { useITSQuote } from "@/hooks/useITSQuote";
-import type { ITSQuoteResponse } from "@/types/its";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Loader2, RefreshCw, Search, AlertCircle, CheckCircle2, MapPin } from "lucide-react";
+import { toast } from "sonner";
+import {
+  useITSQuote,
+  useAddressSearch,
+  useAddressDetails,
+} from "@/hooks/useITSQuote";
+import type {
+  ITSAddressDetails,
+  ITSAddressSuggestion,
+  ITSQuoteResponse,
+} from "@/types/its";
 
 interface Props {
   schoolName: string;
@@ -25,15 +41,20 @@ export function QuoteFetcher({
   onQuote,
   children,
 }: Props) {
-  const mutation = useITSQuote();
+  const quoteMutation = useITSQuote();
+  const addressSearch = useAddressSearch();
+  const addressDetails = useAddressDetails();
   const [lastFetched, setLastFetched] = useState<string | null>(null);
   const [isMock, setIsMock] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [suggestions, setSuggestions] = useState<ITSAddressSuggestion[]>([]);
+  const [chosen, setChosen] = useState<{ id: string; address: string } | null>(null);
 
-  const fetchPricing = async () => {
-    if (!schoolName.trim() || !postcode.trim()) return;
-    const result = await mutation.mutateAsync({
+  const fetchQuoteWithAddress = async (addr: ITSAddressDetails) => {
+    const result = await quoteMutation.mutateAsync({
       schoolName: schoolName.trim(),
       postcode: postcode.trim().toUpperCase(),
+      address: addr,
     });
     if (result.ok) {
       onQuote(result);
@@ -42,17 +63,60 @@ export function QuoteFetcher({
     }
   };
 
-  const result = mutation.data;
-  const error = mutation.error;
+  const startLookup = async () => {
+    if (!schoolName.trim() || !postcode.trim()) return;
+    setChosen(null);
+    const res = await addressSearch.mutateAsync({
+      postcode: postcode.trim().toUpperCase(),
+    });
+    if (!res.ok) {
+      // Address lookup failed. Offer a fallback: query ITS without an address.
+      toast.error(res.error);
+      if (res.code === "MISSING_KEY" || res.code === "UNAUTHORIZED") {
+        // Run a postcode-only quote so the user still gets results.
+        await fetchQuoteWithAddress({
+          postcode: postcode.trim().toUpperCase(),
+          line_1: schoolName.trim(),
+          line_2: "",
+          line_3: "",
+          town: "",
+          county: "",
+          premise: "",
+          thoroughfare: "",
+        });
+      }
+      return;
+    }
+    setSuggestions(res.suggestions);
+    // Always open the picker — the user must explicitly choose, even when one
+    // result is returned, to confirm 100% correct address selection.
+    setPickerOpen(true);
+  };
+
+  const pickAddress = async (s: ITSAddressSuggestion) => {
+    setChosen(s);
+    const res = await addressDetails.mutateAsync({ id: s.id });
+    if (!res.ok) {
+      toast.error(res.error);
+      return;
+    }
+    setPickerOpen(false);
+    await fetchQuoteWithAddress(res.address);
+  };
+
+  const result = quoteMutation.data;
+  const error = quoteMutation.error;
+  const isLoading =
+    quoteMutation.isPending || addressSearch.isPending || addressDetails.isPending;
   const disabled =
-    mutation.isPending || !schoolName.trim() || postcode.trim().length < 5;
+    isLoading || !schoolName.trim() || postcode.trim().length < 5;
 
   return (
     <div className="space-y-4 rounded-lg border border-primary/30 bg-primary/5 p-4">
       <div>
         <h3 className="font-semibold text-sm">Live pricing — ITS Technology Group</h3>
         <p className="text-xs text-muted-foreground">
-          Enter the school name and postcode, then fetch live carrier pricing.
+          Enter the school name and postcode, then pick the exact site address.
         </p>
       </div>
 
@@ -76,28 +140,43 @@ export function QuoteFetcher({
         <div className="flex items-end">
           <Button
             type="button"
-            onClick={fetchPricing}
+            onClick={startLookup}
             disabled={disabled}
             className="w-full sm:w-auto"
           >
-            {mutation.isPending ? (
+            {isLoading ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" /> Fetching…
+                <Loader2 className="h-4 w-4 animate-spin" />{" "}
+                {addressSearch.isPending
+                  ? "Finding addresses…"
+                  : addressDetails.isPending
+                    ? "Loading address…"
+                    : "Fetching…"}
               </>
             ) : lastFetched ? (
               <>
-                <RefreshCw className="h-4 w-4" /> Refresh
+                <RefreshCw className="h-4 w-4" /> Re-pick address
               </>
             ) : (
               <>
-                <Search className="h-4 w-4" /> Get pricing
+                <Search className="h-4 w-4" /> Find address & get pricing
               </>
             )}
           </Button>
         </div>
       </div>
 
-      {mutation.isPending && (
+      {chosen && (
+        <div className="flex items-start gap-2 text-xs">
+          <MapPin className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+          <div>
+            <span className="text-muted-foreground">Selected site:</span>{" "}
+            <span className="font-medium">{chosen.address}</span>
+          </div>
+        </div>
+      )}
+
+      {quoteMutation.isPending && (
         <div className="space-y-2">
           <Skeleton className="h-4 w-2/3" />
           <Skeleton className="h-4 w-1/2" />
@@ -105,7 +184,7 @@ export function QuoteFetcher({
         </div>
       )}
 
-      {!mutation.isPending && result && !result.ok && (
+      {!quoteMutation.isPending && result && !result.ok && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>
@@ -117,39 +196,19 @@ export function QuoteFetcher({
                   ? "API not configured"
                   : "Couldn't fetch pricing"}
           </AlertTitle>
-          <AlertDescription>
-            {result.error}
-            <Button
-              variant="link"
-              size="sm"
-              onClick={fetchPricing}
-              className="ml-1 h-auto p-0 text-destructive underline"
-            >
-              Retry
-            </Button>
-          </AlertDescription>
+          <AlertDescription>{result.error}</AlertDescription>
         </Alert>
       )}
 
-      {!mutation.isPending && error && (
+      {!quoteMutation.isPending && error && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Network error</AlertTitle>
-          <AlertDescription>
-            {error.message}
-            <Button
-              variant="link"
-              size="sm"
-              onClick={fetchPricing}
-              className="ml-1 h-auto p-0 text-destructive underline"
-            >
-              Retry
-            </Button>
-          </AlertDescription>
+          <AlertDescription>{error.message}</AlertDescription>
         </Alert>
       )}
 
-      {!mutation.isPending && result?.ok && lastFetched && (
+      {!quoteMutation.isPending && result?.ok && lastFetched && (
         <div className="flex items-start gap-2 text-xs text-muted-foreground">
           <CheckCircle2 className="h-4 w-4 text-primary shrink-0 mt-0.5" />
           <div>
@@ -168,6 +227,42 @@ export function QuoteFetcher({
       )}
 
       {children}
+
+      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Select the correct site</DialogTitle>
+            <DialogDescription>
+              {suggestions.length} address{suggestions.length === 1 ? "" : "es"} found for{" "}
+              <span className="font-medium">{postcode.toUpperCase()}</span>. Pick the exact
+              property to ensure ITS returns accurate carrier pricing.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto -mx-2 px-2">
+            <ul className="divide-y">
+              {suggestions.map((s) => {
+                const isBusy = addressDetails.isPending && chosen?.id === s.id;
+                return (
+                  <li key={s.id}>
+                    <button
+                      type="button"
+                      disabled={addressDetails.isPending}
+                      onClick={() => pickAddress(s)}
+                      className="w-full text-left py-2.5 px-2 hover:bg-accent/40 rounded text-sm flex items-center justify-between gap-3 disabled:opacity-50"
+                    >
+                      <span className="flex items-start gap-2">
+                        <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                        <span>{s.address}</span>
+                      </span>
+                      {isBusy && <Loader2 className="h-4 w-4 animate-spin shrink-0" />}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
