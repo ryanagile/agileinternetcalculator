@@ -4,9 +4,28 @@ import type {
   ITSAvailability,
   ITSProduct,
   ITSQuoteResult,
+  ITSAddressSuggestion,
+  ITSAddressDetails,
 } from "@/types/its";
 
 const ITS_BASE = "https://api.itstechnologygroup.com";
+const GETADDRESS_BASE = "https://api.getaddress.io";
+
+const addressInputSchema = z
+  .object({
+    postcode: z.string().min(2).max(10),
+    line_1: z.string().optional().default(""),
+    line_2: z.string().optional().default(""),
+    line_3: z.string().optional().default(""),
+    town: z.string().optional().default(""),
+    county: z.string().optional().default(""),
+    premise: z.string().optional().default(""),
+    thoroughfare: z.string().optional().default(""),
+    uprn: z.string().optional().default(""),
+    latitude: z.number().optional(),
+    longitude: z.number().optional(),
+  })
+  .optional();
 
 const inputSchema = z.object({
   schoolName: z.string().trim().min(1).max(200),
@@ -16,6 +35,7 @@ const inputSchema = z.object({
     .min(2)
     .max(10)
     .regex(/^[A-Z0-9 ]+$/i, "Postcode contains invalid characters"),
+  address: addressInputSchema,
 });
 
 interface PostcodeIoResult {
@@ -113,6 +133,129 @@ function mockResponse(postcode: string): ITSQuoteResult {
   };
 }
 
+// ---------------- Address search (getAddress.io) ----------------
+
+const postcodeSchema = z.object({
+  postcode: z
+    .string()
+    .trim()
+    .min(2)
+    .max(10)
+    .regex(/^[A-Z0-9 ]+$/i, "Postcode contains invalid characters"),
+});
+
+export const searchAddresses = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => postcodeSchema.parse(data))
+  .handler(async ({ data }): Promise<
+    | { ok: true; suggestions: ITSAddressSuggestion[] }
+    | { ok: false; error: string; code: "MISSING_KEY" | "UNAUTHORIZED" | "NO_RESULTS" | "API_ERROR" }
+  > => {
+    const apiKey = process.env.GETADDRESS_API_KEY;
+    if (!apiKey) {
+      return { ok: false, code: "MISSING_KEY", error: "Address lookup API key not configured" };
+    }
+    const pc = data.postcode.toUpperCase().replace(/\s+/g, "");
+    const url = `${GETADDRESS_BASE}/autocomplete/${encodeURIComponent(pc)}?api-key=${encodeURIComponent(
+      apiKey,
+    )}&all=true&top=100`;
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ all: true }),
+      });
+      if (res.status === 401 || res.status === 403) {
+        return {
+          ok: false,
+          code: "UNAUTHORIZED",
+          error:
+            "Address lookup is unauthorized — the getAddress.io API key is invalid or doesn't include the Autocomplete endpoint.",
+        };
+      }
+      if (res.status === 404) {
+        return { ok: false, code: "NO_RESULTS", error: "No addresses found for that postcode" };
+      }
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        return { ok: false, code: "API_ERROR", error: `Address API error (${res.status}) ${txt.slice(0, 200)}` };
+      }
+      const json = (await res.json()) as { suggestions?: Array<{ id: string; address: string }> };
+      const suggestions = (json.suggestions ?? []).map((s) => ({ id: s.id, address: s.address }));
+      if (suggestions.length === 0) {
+        return { ok: false, code: "NO_RESULTS", error: "No addresses found for that postcode" };
+      }
+      return { ok: true, suggestions };
+    } catch (err) {
+      console.error("[getAddress] search failed", err);
+      return { ok: false, code: "API_ERROR", error: "Address lookup request failed" };
+    }
+  });
+
+export const getAddressDetails = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) =>
+    z.object({ id: z.string().min(1).max(200) }).parse(data),
+  )
+  .handler(async ({ data }): Promise<
+    | { ok: true; address: ITSAddressDetails }
+    | { ok: false; error: string }
+  > => {
+    const apiKey = process.env.GETADDRESS_API_KEY;
+    if (!apiKey) return { ok: false, error: "Address lookup API key not configured" };
+    try {
+      const res = await fetch(
+        `${GETADDRESS_BASE}/get/${encodeURIComponent(data.id)}?api-key=${encodeURIComponent(apiKey)}`,
+      );
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        return { ok: false, error: `Failed to fetch address (${res.status}) ${txt.slice(0, 200)}` };
+      }
+      const j = (await res.json()) as {
+        postcode: string;
+        latitude?: number;
+        longitude?: number;
+        line_1?: string;
+        line_2?: string;
+        line_3?: string;
+        line_4?: string;
+        thoroughfare?: string;
+        building_number?: string;
+        building_name?: string;
+        sub_building_name?: string;
+        sub_building_number?: string;
+        town_or_city?: string;
+        county?: string;
+        district?: string;
+        locality?: string;
+      };
+      const premise =
+        [j.sub_building_name, j.sub_building_number, j.building_name, j.building_number]
+          .filter((p) => p && String(p).trim())
+          .join(" ")
+          .trim()
+          .slice(0, 100);
+      return {
+        ok: true,
+        address: {
+          postcode: j.postcode,
+          line_1: j.line_1 ?? "",
+          line_2: j.line_2 ?? "",
+          line_3: j.line_3 ?? "",
+          town: j.town_or_city ?? j.district ?? j.locality ?? "",
+          county: j.county ?? j.district ?? "",
+          premise,
+          thoroughfare: j.thoroughfare ?? "",
+          latitude: typeof j.latitude === "number" ? j.latitude : undefined,
+          longitude: typeof j.longitude === "number" ? j.longitude : undefined,
+        },
+      };
+    } catch (err) {
+      console.error("[getAddress] get failed", err);
+      return { ok: false, error: "Address lookup request failed" };
+    }
+  });
+
+// ---------------- ITS quote ----------------
+
 export const getItsQuote = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => inputSchema.parse(data))
   .handler(async ({ data }): Promise<ITSQuoteResult> => {
@@ -121,38 +264,55 @@ export const getItsQuote = createServerFn({ method: "POST" })
 
     const normalizedPostcode = data.postcode.toUpperCase().replace(/\s+/g, " ").trim();
 
-    // 1) Geocode postcode -> lat/long via free postcodes.io (no auth)
+    // Source address fields: prefer the user-selected address payload, otherwise
+    // fall back to a postcode-only lookup via postcodes.io (centroid).
     let lat: number | undefined;
     let lng: number | undefined;
-    let town: string | undefined;
-    let county: string | undefined;
-    try {
-      const pcRes = await fetch(
-        `https://api.postcodes.io/postcodes/${encodeURIComponent(normalizedPostcode)}`,
-      );
-      if (pcRes.status === 404) {
-        return { ok: false, code: "POSTCODE_NOT_FOUND", error: "Postcode not found" };
+    let town: string = "";
+    let county: string = "";
+    let addressLine1: string = data.schoolName.slice(0, 100);
+    let premise = "";
+    let thoroughfare = "";
+    let uprn = "";
+
+    if (data.address) {
+      lat = data.address.latitude;
+      lng = data.address.longitude;
+      town = data.address.town || "";
+      county = data.address.county || "";
+      if (data.address.line_1) addressLine1 = data.address.line_1.slice(0, 100);
+      premise = (data.address.premise || "").slice(0, 100);
+      thoroughfare = (data.address.thoroughfare || "").slice(0, 100);
+      uprn = data.address.uprn || "";
+    }
+
+    if (typeof lat !== "number" || typeof lng !== "number") {
+      try {
+        const pcRes = await fetch(
+          `https://api.postcodes.io/postcodes/${encodeURIComponent(normalizedPostcode)}`,
+        );
+        if (pcRes.status === 404) {
+          return { ok: false, code: "POSTCODE_NOT_FOUND", error: "Postcode not found" };
+        }
+        if (!pcRes.ok) {
+          return { ok: false, code: "INVALID_POSTCODE", error: `Postcode lookup failed (${pcRes.status})` };
+        }
+        const pcJson = (await pcRes.json()) as PostcodeIoResult;
+        lat = pcJson.result?.latitude;
+        lng = pcJson.result?.longitude;
+        if (!town) town = pcJson.result?.admin_district ?? "";
+        if (!county) {
+          county =
+            pcJson.result?.admin_county ??
+            pcJson.result?.admin_district ??
+            pcJson.result?.parish ??
+            pcJson.result?.region ??
+            "";
+        }
+      } catch (err) {
+        console.error("[its] postcode lookup failed", err);
+        return { ok: false, code: "INVALID_POSTCODE", error: "Postcode lookup failed" };
       }
-      if (!pcRes.ok) {
-        return { ok: false, code: "INVALID_POSTCODE", error: `Postcode lookup failed (${pcRes.status})` };
-      }
-      const pcJson = (await pcRes.json()) as PostcodeIoResult;
-      lat = pcJson.result?.latitude;
-      lng = pcJson.result?.longitude;
-      town = pcJson.result?.admin_district;
-      // ITS API quietly excludes some carriers (e.g. Virgin Media) when the
-      // `county` field is missing from the request. Always send a string —
-      // fall back to admin_district, parish or region when admin_county is null.
-      county =
-        pcJson.result?.admin_county ??
-        pcJson.result?.admin_district ??
-        pcJson.result?.parish ??
-        pcJson.result?.region ??
-        "";
-    } catch (err) {
-      console.error("[its] postcode lookup failed", err);
-      if (allowMock) return mockResponse(normalizedPostcode);
-      return { ok: false, code: "INVALID_POSTCODE", error: "Postcode lookup failed" };
     }
 
     if (!apiKey) {
@@ -162,17 +322,15 @@ export const getItsQuote = createServerFn({ method: "POST" })
     }
 
     if (typeof lat !== "number" || typeof lng !== "number") {
-      if (allowMock) return mockResponse(normalizedPostcode);
       return { ok: false, code: "INVALID_POSTCODE", error: "No coordinates for postcode" };
     }
 
-    // 2) Search ITS availability — request all speeds on a 1Gb bearer only, 36-month terms.
     const SPEED_OPTIONS = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
     const connections = SPEED_OPTIONS.map((speed) => ({ bearer: 1000, speed }));
 
-    const body = {
+    const body: Record<string, unknown> = {
       postcode: normalizedPostcode,
-      address_line_1: data.schoolName.slice(0, 100),
+      address_line_1: addressLine1,
       town,
       county,
       latitude: lat,
@@ -181,6 +339,9 @@ export const getItsQuote = createServerFn({ method: "POST" })
       term_months: ["36"],
       connections,
     };
+    if (premise) body.premise = premise;
+    if (thoroughfare) body.thoroughfare = thoroughfare;
+    if (uprn) body.uprn = uprn;
 
     let itsJson: { data?: ITSAvailability } | undefined;
     try {
@@ -201,20 +362,17 @@ export const getItsQuote = createServerFn({ method: "POST" })
       if (!res.ok) {
         const txt = await res.text().catch(() => "");
         console.error("[its] api error", res.status, txt.slice(0, 500));
-        if (allowMock) return mockResponse(normalizedPostcode);
         return { ok: false, code: "API_ERROR", error: `ITS API error (${res.status})` };
       }
       itsJson = (await res.json()) as { data?: ITSAvailability };
     } catch (err) {
       console.error("[its] fetch failed", err);
-      if (allowMock) return mockResponse(normalizedPostcode);
       return { ok: false, code: "API_ERROR", error: "ITS API request failed" };
     }
 
     const avail = itsJson?.data;
     const allQuotes = avail?.quotes ?? [];
 
-    // Enforce 3-year term and 1Gb bearer only.
     const termFiltered = allQuotes.filter(
       (q) => Number(q.term_months) === 36 && Number(q.bearer) === 1000,
     );
@@ -223,7 +381,6 @@ export const getItsQuote = createServerFn({ method: "POST" })
       return { ok: false, code: "NO_AVAILABILITY", error: "No 3-year connectivity products available at this address" };
     }
 
-    // For each (speed, carrier) keep the cheapest by monthly_cost.
     const cheapestBySpeedCarrier = new Map<string, ITSProduct>();
     for (const q of termFiltered) {
       const carrierKey = (q.supplier || "").toLowerCase();
@@ -248,7 +405,7 @@ export const getItsQuote = createServerFn({ method: "POST" })
       setupCost: Number(cheapest.install_cost),
       contractLength: cheapest.term_months,
       products,
-      address: avail.address ?? { postcode: normalizedPostcode },
+      address: avail.address ?? { postcode: normalizedPostcode, uprn: uprn || null },
       fetchedAt: new Date().toISOString(),
     };
   });
