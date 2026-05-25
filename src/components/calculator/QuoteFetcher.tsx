@@ -13,16 +13,8 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, RefreshCw, Search, AlertCircle, CheckCircle2, MapPin } from "lucide-react";
 import { toast } from "sonner";
-import {
-  useITSQuote,
-  useAddressSearch,
-  useAddressDetails,
-} from "@/hooks/useITSQuote";
-import type {
-  ITSAddressDetails,
-  ITSAddressSuggestion,
-  ITSQuoteResponse,
-} from "@/types/its";
+import { useITSQuote, useAddressSearch, useAddressDetails } from "@/hooks/useITSQuote";
+import type { ITSAddressDetails, ITSAddressSuggestion, ITSQuoteResponse } from "@/types/its";
 
 interface Props {
   schoolName: string;
@@ -106,10 +98,8 @@ export function QuoteFetcher({
 
   const result = quoteMutation.data;
   const error = quoteMutation.error;
-  const isLoading =
-    quoteMutation.isPending || addressSearch.isPending || addressDetails.isPending;
-  const disabled =
-    isLoading || !schoolName.trim() || postcode.trim().length < 5;
+  const isLoading = quoteMutation.isPending || addressSearch.isPending || addressDetails.isPending;
+  const disabled = isLoading || !schoolName.trim() || postcode.trim().length < 5;
 
   return (
     <div className="space-y-4 rounded-lg border border-primary/30 bg-primary/5 p-4">
@@ -234,8 +224,8 @@ export function QuoteFetcher({
             <DialogTitle>Select the correct site</DialogTitle>
             <DialogDescription>
               {suggestions.length} address{suggestions.length === 1 ? "" : "es"} found for{" "}
-              <span className="font-medium">{postcode.toUpperCase()}</span>. Pick the exact
-              property to ensure ITS returns accurate carrier pricing.
+              <span className="font-medium">{postcode.toUpperCase()}</span>. Pick the exact property
+              to ensure ITS returns accurate carrier pricing.
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-[60vh] overflow-y-auto -mx-2 px-2">

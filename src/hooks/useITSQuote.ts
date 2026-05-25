@@ -17,8 +17,7 @@ export function useITSQuote() {
 export function useAddressSearch() {
   const fn = useServerFn(searchAddresses);
   return useMutation<
-    | { ok: true; suggestions: ITSAddressSuggestion[] }
-    | { ok: false; error: string; code: string },
+    { ok: true; suggestions: ITSAddressSuggestion[] } | { ok: false; error: string; code: string },
     Error,
     { postcode: string }
   >({
