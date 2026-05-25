@@ -168,9 +168,9 @@ function toAddressDetails(
 
   return {
     postcode: address.postcode ?? postcode,
-    line_1: address.line_1 ?? "",
-    line_2: address.line_2 ?? "",
-    line_3: address.line_3 ?? address.line_4 ?? "",
+    line_1: address.line_1 ?? address.formatted_address?.[0] ?? "",
+    line_2: address.line_2 ?? address.formatted_address?.[1] ?? "",
+    line_3: address.line_3 ?? address.line_4 ?? address.formatted_address?.[2] ?? "",
     town: address.town_or_city ?? address.district ?? address.locality ?? "",
     county: address.county ?? address.district ?? "",
     premise,
