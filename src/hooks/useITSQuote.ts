@@ -17,8 +17,7 @@ export function useITSQuote() {
 export function useAddressSearch() {
   const fn = useServerFn(searchAddresses);
   return useMutation<
-    | { ok: true; suggestions: ITSAddressSuggestion[] }
-    | { ok: false; error: string; code: string },
+    { ok: true; suggestions: ITSAddressSuggestion[] } | { ok: false; error: string; code: string },
     Error,
     { postcode: string }
   >({
@@ -35,7 +34,7 @@ export function useAddressDetails() {
   return useMutation<
     { ok: true; address: ITSAddressDetails } | { ok: false; error: string },
     Error,
-    { id: string }
+    { id: string; address?: ITSAddressDetails }
   >({
     mutationFn: (vars) =>
       fn({ data: vars }) as Promise<

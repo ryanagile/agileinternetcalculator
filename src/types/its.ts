@@ -78,6 +78,7 @@ export type ITSQuoteResult = ITSQuoteResponse | ITSQuoteError;
 export interface ITSAddressSuggestion {
   id: string;
   address: string;
+  details?: ITSAddressDetails;
 }
 
 export interface ITSAddressDetails {
