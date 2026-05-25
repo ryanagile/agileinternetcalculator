@@ -95,7 +95,7 @@ export function QuoteFetcher({
 
   const pickAddress = async (s: ITSAddressSuggestion) => {
     setChosen(s);
-    const res = await addressDetails.mutateAsync({ id: s.id });
+    const res = await addressDetails.mutateAsync({ id: s.id, address: s.details });
     if (!res.ok) {
       toast.error(res.error);
       return;

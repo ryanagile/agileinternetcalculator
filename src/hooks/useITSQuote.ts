@@ -35,7 +35,7 @@ export function useAddressDetails() {
   return useMutation<
     { ok: true; address: ITSAddressDetails } | { ok: false; error: string },
     Error,
-    { id: string }
+    { id: string; address?: ITSAddressDetails }
   >({
     mutationFn: (vars) =>
       fn({ data: vars }) as Promise<
