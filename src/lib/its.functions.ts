@@ -261,21 +261,17 @@ export const searchAddresses = createServerFn({ method: "POST" })
       return { ok: false, code: "MISSING_KEY", error: "Address lookup API key not configured" };
     }
     const pc = data.postcode.toUpperCase().replace(/\s+/g, "");
-    const url = `${GETADDRESS_BASE}/autocomplete/${encodeURIComponent(pc)}?api-key=${encodeURIComponent(
+    const url = `${GETADDRESS_BASE}/find/${encodeURIComponent(pc)}?api-key=${encodeURIComponent(
       apiKey,
-    )}&all=true&top=100`;
+    )}&expand=true&sort=true`;
     try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ all: true }),
-      });
+      const res = await fetch(url, { headers: { Accept: "application/json" } });
       if (res.status === 401 || res.status === 403) {
         return {
           ok: false,
           code: "UNAUTHORIZED",
           error:
-            "Address lookup is unauthorized — the getAddress.io API key is invalid or doesn't include the Autocomplete endpoint.",
+            "Address lookup is unauthorized — check the getAddress.io API key allows postcode find requests.",
         };
       }
       if (res.status === 404) {
@@ -285,8 +281,12 @@ export const searchAddresses = createServerFn({ method: "POST" })
         const txt = await res.text().catch(() => "");
         return { ok: false, code: "API_ERROR", error: `Address API error (${res.status}) ${txt.slice(0, 200)}` };
       }
-      const json = (await res.json()) as { suggestions?: Array<{ id: string; address: string }> };
-      const suggestions = (json.suggestions ?? []).map((s) => ({ id: s.id, address: s.address }));
+      const json = (await res.json()) as GetAddressFindResponse;
+      const suggestions = (json.addresses ?? []).map((address, index) => ({
+        id: String(index),
+        address: normaliseAddressLabel(address, json.postcode),
+        details: toAddressDetails(address, json),
+      }));
       if (suggestions.length === 0) {
         return { ok: false, code: "NO_RESULTS", error: "No addresses found for that postcode" };
       }
@@ -299,12 +299,16 @@ export const searchAddresses = createServerFn({ method: "POST" })
 
 export const getAddressDetails = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) =>
-    z.object({ id: z.string().min(1).max(200) }).parse(data),
+    z.object({ id: z.string().min(1).max(200), address: addressInputSchema }).parse(data),
   )
   .handler(async ({ data }): Promise<
     | { ok: true; address: ITSAddressDetails }
     | { ok: false; error: string }
   > => {
+    if (data.address) {
+      return { ok: true, address: data.address };
+    }
+
     const apiKey = process.env.GETADDRESS_API_KEY;
     if (!apiKey) return { ok: false, error: "Address lookup API key not configured" };
     try {
