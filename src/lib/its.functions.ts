@@ -273,8 +273,16 @@ export const searchAddresses = createServerFn({ method: "POST" })
       const url = `${GETADDRESS_BASE}/find/${encodeURIComponent(pc)}?api-key=${encodeURIComponent(
         apiKey,
       )}&expand=true&sort=true`;
+      const referer =
+        process.env.GETADDRESS_REFERER || "https://agileinternetcalculator.lovable.app";
       try {
-        const res = await fetch(url, { headers: { Accept: "application/json" } });
+        const res = await fetch(url, {
+          headers: {
+            Accept: "application/json",
+            Referer: referer,
+            Origin: referer,
+          },
+        });
         if (res.status === 401 || res.status === 403) {
           return {
             ok: false,
@@ -325,9 +333,12 @@ export const getAddressDetails = createServerFn({ method: "POST" })
 
       const apiKey = process.env.GETADDRESS_API_KEY;
       if (!apiKey) return { ok: false, error: "Address lookup API key not configured" };
+      const referer =
+        process.env.GETADDRESS_REFERER || "https://agileinternetcalculator.lovable.app";
       try {
         const res = await fetch(
           `${GETADDRESS_BASE}/get/${encodeURIComponent(data.id)}?api-key=${encodeURIComponent(apiKey)}`,
+          { headers: { Accept: "application/json", Referer: referer, Origin: referer } },
         );
         if (!res.ok) {
           const txt = await res.text().catch(() => "");
