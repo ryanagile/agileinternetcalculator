@@ -273,8 +273,16 @@ export const searchAddresses = createServerFn({ method: "POST" })
       const url = `${GETADDRESS_BASE}/find/${encodeURIComponent(pc)}?api-key=${encodeURIComponent(
         apiKey,
       )}&expand=true&sort=true`;
+      const referer =
+        process.env.GETADDRESS_REFERER || "https://agileinternetcalculator.lovable.app";
       try {
-        const res = await fetch(url, { headers: { Accept: "application/json" } });
+        const res = await fetch(url, {
+          headers: {
+            Accept: "application/json",
+            Referer: referer,
+            Origin: referer,
+          },
+        });
         if (res.status === 401 || res.status === 403) {
           return {
             ok: false,
