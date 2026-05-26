@@ -333,9 +333,12 @@ export const getAddressDetails = createServerFn({ method: "POST" })
 
       const apiKey = process.env.GETADDRESS_API_KEY;
       if (!apiKey) return { ok: false, error: "Address lookup API key not configured" };
+      const referer =
+        process.env.GETADDRESS_REFERER || "https://agileinternetcalculator.lovable.app";
       try {
         const res = await fetch(
           `${GETADDRESS_BASE}/get/${encodeURIComponent(data.id)}?api-key=${encodeURIComponent(apiKey)}`,
+          { headers: { Accept: "application/json", Referer: referer, Origin: referer } },
         );
         if (!res.ok) {
           const txt = await res.text().catch(() => "");
